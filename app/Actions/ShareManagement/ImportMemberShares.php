@@ -3,11 +3,13 @@
 namespace App\Actions\ShareManagement;
 
 use App\Actions\Concerns\ReadsCsvUpload;
+use App\Models\ShareManagement\MemberShareTransaction;
 use App\Models\UserManagement\Group;
 use App\Models\UserManagement\User;
 use App\Support\BillingPeriod;
 use App\Support\ImportDate;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -110,11 +112,16 @@ class ImportMemberShares
         }
 
         $period = BillingPeriod::start(null, $date);
+        $reference = $row['reference'] === '' ? null : mb_substr($row['reference'], 0, 255);
+
+        if ($this->alreadyImported($member->id, $date, $reference, $amountInCents)) {
+            return ['Already imported: this member already has shares with the same date, amount and reference.', $member->name, 0];
+        }
 
         try {
             $records = $this->recordPurchase->handle(
                 $group, $member, $user, $shares, $date, $period,
-                $row['reference'] === '' ? null : mb_substr($row['reference'], 0, 255),
+                $reference,
                 $price, $maximumShares, $date,
             );
         } catch (InvalidArgumentException $exception) {
@@ -122,5 +129,21 @@ class ImportMemberShares
         }
 
         return [null, $member->name, count($records)];
+    }
+
+    /**
+     * Whether the member already has share purchases on the date, with the same reference, adding up to the row's amount. A purchase
+     * that was carried over several months adds up across its records, so uploading the same file twice records nothing new.
+     */
+    private function alreadyImported(int $memberId, Carbon $date, ?string $reference, int $amountInCents): bool
+    {
+        $total = MemberShareTransaction::query()
+            ->where('group_member_id', $memberId)
+            ->where('transaction_type', 'purchase')
+            ->whereDate('transaction_date', $date->toDateString())
+            ->when($reference === null, fn ($query) => $query->whereNull('reference'), fn ($query) => $query->where('reference', $reference))
+            ->sum('total_amount');
+
+        return $total > 0 && (int) round((float) $total * 100) === $amountInCents;
     }
 }

@@ -122,3 +122,41 @@ test('the command adds contributions for share purchases that have none, once', 
         ->and($purchase->contribution_id)->not->toBeNull()
         ->and($purchase->contribution->created_at->toDateString())->toBe('2026-01-10');
 });
+
+test('uploading the same file again records nothing new in shares or contributions', function () {
+    addSharesFund($this);
+    $rows = "{$this->member->phone_number},20000,15/12/2025 08:32:47,Slip 9\n{$this->member->phone_number},40000,2026-01-20,\n";
+
+    importShareRows($this, $rows)->assertJsonPath('data.imported', 2);
+
+    $shares = MemberShareTransaction::query()->count();
+    $contributions = $this->group->contributions()->count();
+    $payments = PaymentTransaction::query()->count();
+
+    $second = importShareRows($this, $rows)->assertJsonPath('data.imported', 0)->assertJsonCount(2, 'data.skipped');
+
+    expect($second->json('data.skipped.0.reason'))->toContain('Already imported')
+        ->and(MemberShareTransaction::query()->count())->toBe($shares)
+        ->and($this->group->contributions()->count())->toBe($contributions)
+        ->and(PaymentTransaction::query()->count())->toBe($payments);
+});
+
+test('the same row twice in one file is imported once, and a different amount, date or reference is not a duplicate', function () {
+    addSharesFund($this);
+    $phone = $this->member->phone_number;
+
+    importShareRows($this, "{$phone},10000,2026-01-10,A\n{$phone},10000,2026-01-10,A\n{$phone},10000,2026-01-10,B\n{$phone},5000,2026-01-10,A\n{$phone},10000,2026-01-11,A\n")
+        ->assertJsonPath('data.imported', 4)->assertJsonCount(1, 'data.skipped');
+
+    expect(MemberShareTransaction::query()->count())->toBe(4)
+        ->and($this->group->contributions()->count())->toBe(4);
+});
+
+test('a purchase already recorded by hand counts as imported', function () {
+    buyShares($this, $this->member, '2026-01', 2, '2026-01-10');
+
+    importShareRows($this, "{$this->member->phone_number},10000,2026-01-10,\n")
+        ->assertJsonPath('data.imported', 0)->assertJsonCount(1, 'data.skipped');
+
+    expect(MemberShareTransaction::query()->count())->toBe(1);
+});
