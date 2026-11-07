@@ -42,7 +42,9 @@ export default {
 
     watch: {
         modelValue(value) {
-            if (value && value !== this.$refs.input.value) {
+            if (!value) {
+                this.picker.clear(false);
+            } else if (value !== this.$refs.input.value) {
                 this.picker.setDate(`${value}-01`, false);
             }
         },

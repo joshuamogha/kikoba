@@ -28,4 +28,20 @@ class BillingPeriod
             ? $fallback->copy()->startOfMonth()
             : Carbon::createFromFormat('!Y-m', $period)->startOfMonth();
     }
+
+    /**
+     * The first and last day (Y-m-d) of a month written YYYY-MM, or null when the text is not a valid month.
+     *
+     * @return array{0: string, 1: string}|null
+     */
+    public static function monthFilter(string $month): ?array
+    {
+        if (preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $month) !== 1) {
+            return null;
+        }
+
+        $start = Carbon::createFromFormat('!Y-m', $month)->startOfMonth();
+
+        return [$start->toDateString(), $start->copy()->endOfMonth()->toDateString()];
+    }
 }

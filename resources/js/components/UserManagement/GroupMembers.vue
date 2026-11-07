@@ -39,6 +39,8 @@
                             <th>No.</th>
                             <th>Type</th>
                             <th>Roles</th>
+                            <th class="text-end">Shares</th>
+                            <th class="text-end">Share amount</th>
                             <th>Status</th>
                             <th>Joined</th>
                             <th>Action</th>
@@ -64,6 +66,8 @@
                                 </template>
                                 <span v-if="!leadershipRoles(member).length" class="text-muted small">Member</span>
                             </td>
+                            <td class="text-end">{{ member.shares_count.toLocaleString() }}</td>
+                            <td class="text-end">{{ money(member.shares_amount) }}</td>
                             <td>
                                 <StatusBadge :status="member.membership_status" />
                                 <div v-if="member.exit_reason" class="small text-muted">{{ member.exit_reason }}</div>
@@ -106,7 +110,7 @@
                             </td>
                         </tr>
                         <tr v-if="!members.length">
-                            <td :colspan="8" class="text-center text-muted py-4">No members found.</td>
+                            <td :colspan="10" class="text-center text-muted py-4">No members found.</td>
                         </tr>
                     </tbody>
                 </table>
@@ -453,6 +457,10 @@ export default {
             this.linkModal = false;
             this.exitModal = false;
             this.errors = {};
+        },
+
+        money(value) {
+            return new Intl.NumberFormat("en-TZ", { maximumFractionDigits: 2 }).format(value ?? 0);
         },
 
         handleError(error) {

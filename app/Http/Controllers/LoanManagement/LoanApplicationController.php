@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\LoanManagement;
 
-use App\Actions\LoanManagement\DisburseLoan;
+use App\Actions\LoanManagement\RecordExistingLoan;
 use App\Actions\PaymentManagement\ResolveFinancialCycle;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\PaymentManagement\Concerns\ResolvesPaymentGroup;
@@ -126,44 +126,18 @@ class LoanApplicationController extends Controller
      * Record a loan that has already happened in one step: the application (approved), its guarantors (accepted) and the loan with
      * its installment schedule, all dated as given.
      */
-    public function record(RecordLoanRequest $request, ResolveFinancialCycle $resolveCycle, DisburseLoan $disburse): JsonResponse
+    public function record(RecordLoanRequest $request, RecordExistingLoan $recordLoan): JsonResponse
     {
         $group = $request->group();
-        $product = $group->loanProducts()->findOrFail($request->validated('loan_product_id'));
-        $applicationDate = Carbon::parse($request->validated('application_date'));
 
-        [$application, $loan] = DB::transaction(function () use ($request, $group, $product, $applicationDate, $resolveCycle, $disburse): array {
-            $application = $group->loanApplications()->create([
-                'financial_cycle_id' => $resolveCycle->handle($group, $applicationDate, $request->user()->id)->id,
-                'loan_product_id' => $product->id,
-                'group_member_id' => $request->validated('group_member_id'),
-                'application_number' => 'PENDING-'.uniqid(),
-                'requested_amount' => $request->validated('requested_amount'),
-                'approved_amount' => $request->validated('approved_amount') ?? $request->validated('requested_amount'),
-                'purpose' => $request->validated('purpose'),
-                'duration_months' => $product->termFor((float) ($request->validated('approved_amount') ?? $request->validated('requested_amount'))) ?? $request->validated('duration_months'),
-                'interest_rate' => $product->interest_rate,
-                'loan_interest_method_id' => $product->loan_interest_method_id,
-                'application_date' => $applicationDate->toDateString(),
-                'status' => 'approved',
-                'reviewed_by' => $request->user()->id,
-                'reviewed_at' => $applicationDate->copy()->setTime(12, 0),
-                'approved_by' => $request->user()->id,
-                'approved_at' => $applicationDate->copy()->setTime(12, 0),
-            ]);
-            $application->update(['application_number' => sprintf('LA-%d-%06d', $applicationDate->year, $application->id)]);
-
-            foreach ($request->validated('guarantors', []) as $guarantor) {
-                $application->loanGuarantors()->create([
-                    'group_member_id' => $guarantor['group_member_id'],
-                    'guaranteed_amount' => $guarantor['guaranteed_amount'],
-                    'status' => 'accepted',
-                    'responded_at' => $applicationDate->copy()->setTime(12, 0),
-                ]);
-            }
-
-            return [$application, $disburse->handle($application, $request->user(), Carbon::parse($request->validated('disbursement_date')))];
-        });
+        [$application, $loan] = $recordLoan->handle(
+            $group,
+            $group->loanProducts()->findOrFail($request->validated('loan_product_id')),
+            $request->user(),
+            $request->validated(),
+            Carbon::parse($request->validated('application_date')),
+            Carbon::parse($request->validated('disbursement_date')),
+        );
 
         return response()->json([
             'success' => true,

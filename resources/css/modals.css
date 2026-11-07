@@ -8,3 +8,17 @@
     justify-content: center;
     z-index: 9999;
 }
+
+/* Space between the buttons of a button group (Add / Import, row actions) instead of fusing them together. */
+.btn-group,
+.btn-group-sm {
+    gap: 0.25rem;
+}
+
+.btn-group > .btn:not(:first-child),
+.btn-group > .btn:not(:last-child),
+.btn-group > .btn-group:not(:first-child) > .btn,
+.btn-group > .btn-group:not(:last-child) > .btn {
+    margin-left: 0;
+    border-radius: var(--bs-btn-border-radius);
+}

@@ -2,6 +2,7 @@
 
 namespace App\Models\PaymentManagement;
 
+use App\Models\ShareManagement\MemberShareTransaction;
 use App\Models\UserManagement\Group;
 use App\Models\UserManagement\GroupMember;
 use App\Models\UserManagement\User;
@@ -88,5 +89,15 @@ class Contribution extends Model
     public function paymentTransactions(): MorphMany
     {
         return $this->morphMany(PaymentTransaction::class, 'reference');
+    }
+
+    /**
+     * The share purchases this contribution records the money for (none for an ordinary contribution).
+     *
+     * @return HasMany<MemberShareTransaction, $this>
+     */
+    public function shareTransactions(): HasMany
+    {
+        return $this->hasMany(MemberShareTransaction::class);
     }
 }

@@ -38,6 +38,9 @@ export default {
             loaded: false,
             search: "",
             status: "",
+            filters: {},
+            totals: null,
+            filterOptions: { members: [], cycles: [], funds: [] },
             canManage: false,
             options: {},
             formModal: false,
@@ -48,6 +51,10 @@ export default {
     },
 
     computed: {
+        activeFilters() {
+            return Object.fromEntries(Object.entries(this.filters).filter(([, value]) => value !== "" && value !== null && value !== undefined));
+        },
+
         emptyMessage() {
             return this.loaded ? "Nothing found for this group." : "Loading...";
         },
@@ -65,12 +72,14 @@ export default {
             }
 
             axios
-                .get(this.endpoint, { params: { page, q: this.search, status: this.status, group_id: this.groupId } })
+                .get(this.endpoint, { params: { page, q: this.search, status: this.status, group_id: this.groupId, ...this.activeFilters } })
                 .then((response) => {
                     this.items = response.data.data;
                     this.meta = response.data.meta;
                     this.canManage = response.data.can_manage ?? false;
                     this.options = response.data.options ?? {};
+                    this.totals = response.data.totals ?? null;
+                    this.filterOptions = { members: [], cycles: [], funds: [], ...(response.data.filters ?? {}) };
                     this.loaded = true;
                 })
                 .catch(this.handleError);
@@ -78,6 +87,7 @@ export default {
 
         onGroup(groupId) {
             this.groupId = groupId;
+            this.filters = {};
 
             rememberGroup(groupId);
             this.load(1);
@@ -85,6 +95,11 @@ export default {
 
         onSearch(query) {
             this.search = query;
+            this.load(1);
+        },
+
+        onFilters(filters) {
+            this.filters = filters;
             this.load(1);
         },
 

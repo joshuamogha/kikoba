@@ -6,7 +6,10 @@
         </div>
         <div v-if="canManage" class="card-body py-2 border-bottom d-flex justify-content-between align-items-center">
             <span class="small text-muted">Already gave a loan? Record it in one step: application, guarantors (optional) and loan.</span>
-            <button @click="openRecord" class="btn btn-outline-primary btn-sm"><i class="bi bi-journal-plus"></i> Record existing loan</button>
+            <div class="btn-group btn-group-sm">
+                <button @click="openRecord" class="btn btn-outline-primary"><i class="bi bi-journal-plus"></i> Record existing loan</button>
+                <button @click="importModal = true" class="btn btn-outline-primary"><i class="bi bi-upload"></i> Import loans</button>
+            </div>
         </div>
         <div class="card-body p-0">
             <table class="table table-striped mb-0 align-middle">
@@ -110,6 +113,11 @@
                 </button>
             </template>
         </MediumModal>
+
+        <ImportModal v-if="importModal" title="Import loans" template-url="/loan-applications/import/template" upload-url="/loan-applications/import" :group-id="groupId"
+            :fields="importFields" :columns="importColumns"
+            note="Every row goes through all the steps at once: application, guarantors (if included), approval and disbursement with the installment schedule. The member is identified by phone number and the product by its code. Eligibility checks for new applications (savings limit, guarantors needed, one loan at a time) are skipped, as when recording an existing loan. A loan with the same member, product, disbursement date and amount is skipped, so the same file can be uploaded again safely. Past repayments are added on the Loan Repayments page. Up to 500 rows per file."
+            @close="importModal = false" @imported="load(1)" />
     </div>
 </template>
 
@@ -121,7 +129,25 @@ export default {
     mixins: [paymentPage],
 
     data() {
-        return { endpoint: "/loan-applications", decision: null, recordModal: false, record: {}, preview: { form: null, record: null } };
+        return {
+            endpoint: "/loan-applications",
+            decision: null,
+            recordModal: false,
+            record: {},
+            preview: { form: null, record: null },
+            importModal: false,
+            importFields: [{ name: "include_guarantors", label: "Include guarantors (adds guarantor columns to the template and reads them)", type: "checkbox", default: false }],
+            importColumns: [
+                { name: "phone_number", required: true, description: "The borrower's phone number: it identifies the member.", example: "0712345678" },
+                { name: "loan_product", required: true, description: "The code of the loan product (see Loan Products).", example: "DHARURA" },
+                { name: "amount", required: true, description: "The amount applied for, which is also the amount approved and disbursed.", example: "500000" },
+                { name: "application_date", required: true, description: "When the member applied, e.g. 05/01/2026 or 2026-01-05. It cannot be after the disbursement date.", example: "2026-01-05" },
+                { name: "disbursement_date", required: true, description: "When the loan was given, in the past or today. The installment schedule starts from this date.", example: "2026-01-10" },
+                { name: "purpose", required: true, description: "What the loan is for.", example: "School fees" },
+                { name: "duration_months", required: false, description: "The term in months (1 to 600). Leave empty when the product's amount ranges decide the term.", example: "6" },
+                { name: "guarantorN_phone / guarantorN_amount", required: false, description: "Only with Include guarantors: up to 3 pairs (guarantor1_phone, guarantor1_amount, ...). A pair needs both cells; guarantors are recorded as accepted.", example: "0754123456 / 300000" },
+            ],
+        };
     },
 
     methods: {

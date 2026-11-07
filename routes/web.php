@@ -10,12 +10,14 @@ use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\LoanManagement\LoanApplicationController;
 use App\Http\Controllers\LoanManagement\LoanController;
 use App\Http\Controllers\LoanManagement\LoanGuarantorController;
+use App\Http\Controllers\LoanManagement\LoanImportController;
 use App\Http\Controllers\LoanManagement\LoanInstallmentController;
 use App\Http\Controllers\LoanManagement\LoanProductController;
 use App\Http\Controllers\LoanManagement\LoanProductRangeController;
 use App\Http\Controllers\LoanManagement\LoanRepaymentController;
 use App\Http\Controllers\PaymentManagement\ContributionCalendarController;
 use App\Http\Controllers\PaymentManagement\ContributionController;
+use App\Http\Controllers\PaymentManagement\ContributionImportController;
 use App\Http\Controllers\PaymentManagement\FinancialCycleController;
 use App\Http\Controllers\PaymentManagement\GroupExpenseController;
 use App\Http\Controllers\PaymentManagement\GroupFundController;
@@ -101,7 +103,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     }
 
     Route::get('contribution-calendar', [ContributionCalendarController::class, 'index'])->name('contribution-calendar.index');
-    Route::resource('contributions', ContributionController::class)->only(['index', 'store']);
+    Route::get('contributions/import/template', [ContributionImportController::class, 'template'])->name('contributions.template');
+    Route::post('contributions/import', [ContributionImportController::class, 'import'])->name('contributions.import');
+    Route::resource('contributions', ContributionController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
     Route::patch('contributions/{contribution}/approve', [ContributionController::class, 'approve'])->name('contributions.approve');
 
     Route::resource('group-incomes', GroupIncomeController::class)->only(['index', 'store']);
@@ -114,6 +118,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('loan-products', LoanProductController::class)->only(['index', 'store', 'update']);
     Route::resource('loan-ranges', LoanProductRangeController::class)->only(['index', 'store', 'update', 'destroy']);
 
+    Route::get('loan-applications/import/template', [LoanImportController::class, 'template'])->name('loan-applications.template');
+    Route::post('loan-applications/import', [LoanImportController::class, 'import'])->name('loan-applications.import');
     Route::resource('loan-applications', LoanApplicationController::class)->only(['index', 'store']);
     Route::get('loan-applications/preview', [LoanApplicationController::class, 'preview'])->name('loan-applications.preview');
     Route::post('loan-applications/record', [LoanApplicationController::class, 'record'])->name('loan-applications.record');

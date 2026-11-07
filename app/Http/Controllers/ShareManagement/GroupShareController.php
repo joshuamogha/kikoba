@@ -34,16 +34,22 @@ class GroupShareController extends Controller
         }
 
         $user = $request->user();
+        $memberId = $canManage ? $request->integer('group_member_id') : 0;
+        $month = BillingPeriod::monthFilter($request->string('month')->toString());
+
         $query = $group->memberShareTransactions()
             ->with(['group:id,name', 'financialCycle:id,name', 'groupMember'])
             ->when(! $canManage, fn ($rows) => $rows->whereHas('groupMember', fn ($member) => $member->where('user_id', $user->id)))
+            ->when($memberId > 0, fn ($rows) => $rows->where('group_member_id', $memberId))
+            ->when($month !== null, fn ($rows) => $rows->whereRaw('coalesce(period_start, transaction_date) between ? and ?', [$month[0], $month[1]]))
             ->orderByDesc('transaction_date')
             ->orderByDesc('id');
 
         $totals = $query->clone()->toBase()->reorder()->selectRaw('coalesce(sum(number_of_shares), 0) as shares, coalesce(sum(total_amount), 0) as amount')->first();
 
-        return MemberShareTransactionResource::collection($query->paginate(15))
+        return MemberShareTransactionResource::collection($query->paginate(15)->withQueryString())
             ->additional([
+                'filters' => ['members' => $canManage ? $this->memberFilterOptions($group) : []],
                 'totals' => ['shares' => (int) $totals->shares, 'amount' => (float) $totals->amount],
                 'meta_options' => $canManage ? [
                     'price_per_share' => (float) $group->ensureGroupSetting()->share_price,
@@ -128,5 +134,16 @@ class GroupShareController extends Controller
                 .($result['skipped'] === [] ? '.' : ', '.count($result['skipped']).' skipped.'),
             'data' => $result,
         ]);
+    }
+
+    /**
+     * Every member of the group (also those who left), for the member filter.
+     *
+     * @return array<int, array{value: int, label: string}>
+     */
+    private function memberFilterOptions(Group $group): array
+    {
+        return $group->groupMembers()->orderBy('name')->get(['id', 'name', 'member_number'])
+            ->map(fn ($member) => ['value' => $member->id, 'label' => "{$member->name} ({$member->member_number})"])->all();
     }
 }

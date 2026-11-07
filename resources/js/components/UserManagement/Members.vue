@@ -2,14 +2,20 @@
     <div class="card">
         <div class="card-header">
             <div class="row align-items-center g-2">
-                <div class="col-md-3"><h4 class="mb-0">Members</h4></div>
                 <div class="col-md-3">
-                    <select :value="groupId" @change="onGroup($event.target.value)" class="form-select" aria-label="Group">
+                    <h4 class="mb-0">Members</h4>
+                </div>
+                <div class="col-md-3">
+                    <select :value="groupId" @change="onGroup($event.target.value)" class="form-select"
+                        aria-label="Group">
                         <option v-if="!groups.length" value="">No groups yet</option>
-                        <option v-for="group in groups" :key="group.value" :value="group.value">{{ group.label }}</option>
+                        <option v-for="group in groups" :key="group.value" :value="group.value">{{ group.label }}
+                        </option>
                     </select>
                 </div>
-                <div class="col-md-2"><SearchInput @search="onSearch" /></div>
+                <div class="col-md-2">
+                    <SearchInput @search="onSearch" />
+                </div>
                 <div class="col-md-2">
                     <select @change="onStatus($event.target.value)" class="form-select" aria-label="Status">
                         <option value="">All statuses</option>
@@ -21,7 +27,8 @@
                 <div class="col-md-2 text-end">
                     <div v-if="canManage" class="btn-group btn-group-sm">
                         <button @click="openAdd" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Member</button>
-                        <button @click="openImport" class="btn btn-outline-primary"><i class="bi bi-upload"></i> Import</button>
+                        <button @click="openImport" class="btn btn-outline-primary"><i class="bi bi-upload"></i>
+                            Import</button>
                     </div>
                 </div>
             </div>
@@ -29,7 +36,16 @@
         <div class="card-body p-0">
             <table class="table table-striped mb-0 align-middle">
                 <thead>
-                    <tr><th>#</th><th>Number</th><th>Name</th><th>Phone</th><th>Type</th><th>Account</th><th>Status</th><th>Action</th></tr>
+                    <tr>
+                        <th>#</th>
+                        <th>Number</th>
+                        <th>Name</th>
+                        <th>Phone</th>
+                        <th>Type</th>
+                        <th>Account</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
                 </thead>
                 <tbody>
                     <tr v-for="(item, index) in items" :key="item.id">
@@ -38,56 +54,91 @@
                         <td>{{ item.name }}</td>
                         <td>{{ item.phone }}</td>
                         <td>{{ item.membership_type.name }}</td>
-                        <td><span class="badge" :class="item.has_account ? 'text-bg-success' : 'text-bg-secondary'">{{ item.has_account ? "Linked" : "No account" }}</span></td>
-"                        <td><StatusBadge :status="item.membership_status" /></td>
+                        <td><span class="badge" :class="item.has_account ? 'text-bg-success' : 'text-bg-secondary'">{{
+                            item.has_account ? "Linked" : "No account" }}</span></td>
+                        <td>
+                            <StatusBadge :status="item.membership_status" />
+                        </td>
                         <td>
                             <div class="btn-group btn-group-sm">
-                                <a v-if="canManage || item.is_self" :href="`/members/${item.id}`" class="btn btn-info" title="View member"><i class="bi bi-eye"></i></a>
+                                <a v-if="canManage || item.is_self" :href="`/members/${item.id}`" class="btn btn-info"
+                                    title="View member"><i class="bi bi-eye"></i></a>
                                 <template v-if="canManage">
-                                    <button @click="openEdit(item)" class="btn btn-secondary" title="Edit"><i class="bi bi-pencil"></i></button>
-                                    <button v-if="item.membership_status === 'active'" @click="setStatus(item, 'suspended')" class="btn btn-warning" title="Deactivate"><i class="bi bi-pause-circle"></i></button>
-                                    <button v-else @click="setStatus(item, 'active')" class="btn btn-success" title="Activate"><i class="bi bi-play-circle"></i></button>
-                                    <button @click="deleting = item" class="btn btn-danger" title="Delete"><i class="bi bi-trash"></i></button>
+                                    <button @click="openEdit(item)" class="btn btn-secondary" title="Edit"><i
+                                            class="bi bi-pencil"></i></button>
+                                    <button v-if="item.membership_status === 'active'"
+                                        @click="setStatus(item, 'suspended')" class="btn btn-warning"
+                                        title="Deactivate"><i class="bi bi-pause-circle"></i></button>
+                                    <button v-else @click="setStatus(item, 'active')" class="btn btn-success"
+                                        title="Activate"><i class="bi bi-play-circle"></i></button>
+                                    <button @click="deleting = item" class="btn btn-danger" title="Delete"><i
+                                            class="bi bi-trash"></i></button>
                                 </template>
                             </div>
                         </td>
                     </tr>
-                    <tr v-if="!items.length"><td colspan="8" class="text-center text-muted py-4">{{ emptyMessage }}</td></tr>
+                    <tr v-if="!items.length">
+                        <td colspan="10" class="text-center text-muted py-4">{{ emptyMessage }}</td>
+                    </tr>
                 </tbody>
             </table>
         </div>
         <div class="card-footer">
             <Pagination v-if="meta.total" :meta="meta" @change="load" />
             <div v-if="groupId" class="text-center mt-2">
-                <a :href="`/groups/${groupId}/members`" class="small">Manage roles, status and details in the group's members page</a>
+                <a :href="`/groups/${groupId}/members`" class="small">Manage roles, status and details in the group's
+                    members
+                    page</a>
             </div>
         </div>
 
         <LargeModal v-if="formModal" @close="closeModal">
-            <template v-slot:header><h4>{{ form.id ? "Edit member" : "Add member" }}</h4></template>
+            <template v-slot:header>
+                <h4>{{ form.id ? "Edit member" : "Add member" }}</h4>
+            </template>
             <template v-slot:body>
                 <div class="row">
-                    <div class="col-md-6"><BaseInput v-model="form.name" label="Full name" :error="errors.name?.[0]" /></div>
-                    <div v-if="!form.id" class="col-md-6"><BaseInput v-model="form.login" label="Phone number or email" placeholder="0712345678" :error="errors.login?.[0]" /></div>
-                    <div v-else class="col-md-6"><BaseInput v-model="form.phone_number" label="Phone number" :disabled="form.has_account" :error="errors.phone_number?.[0]" /></div>
-                    <div class="col-md-6"><BaseSelect v-model="form.membership_type_id" label="Membership type" :options="options.membership_types" :error="errors.membership_type_id?.[0]" /></div>
-                    <div v-if="!form.id" class="col-md-6"><DatePicker v-model="form.joined_at" label="Joined date" :error="errors.joined_at?.[0]" /></div>
+                    <div class="col-md-6">
+                        <BaseInput v-model="form.name" label="Full name" :error="errors.name?.[0]" />
+                    </div>
+                    <div v-if="!form.id" class="col-md-6">
+                        <BaseInput v-model="form.login" label="Phone number or email" placeholder="0712345678"
+                            :error="errors.login?.[0]" />
+                    </div>
+                    <div v-else class="col-md-6">
+                        <BaseInput v-model="form.phone_number" label="Phone number" :disabled="form.has_account"
+                            :error="errors.phone_number?.[0]" />
+                    </div>
+                    <div class="col-md-6">
+                        <BaseSelect v-model="form.membership_type_id" label="Membership type"
+                            :options="options.membership_types" :error="errors.membership_type_id?.[0]" />
+                    </div>
+                    <div v-if="!form.id" class="col-md-6">
+                        <DatePicker v-model="form.joined_at" label="Joined date" :error="errors.joined_at?.[0]" />
+                    </div>
                 </div>
-                <p class="small text-muted mb-0">A phone number or email that belongs to a registered user links to their account. Any other phone number adds a member without an account.</p>
+                <p class="small text-muted mb-0">A phone number or email that belongs to a registered user links to
+                    their account. Any other phone number adds a member without an account.</p>
             </template>
-            <template v-slot:footer><button @click="save" class="btn btn-primary" :disabled="saving">{{ form.id ? "Update member" : "Add member" }}</button></template>
+            <template v-slot:footer><button @click="save" class="btn btn-primary" :disabled="saving">{{ form.id ?
+                "Update member" : "Add member" }}</button></template>
         </LargeModal>
 
         <ConfirmModal v-if="deleting" @close="deleting = null">
-            <template v-slot:header><h4>Alert</h4></template>
-            <template v-slot:body>
-                Delete {{ deleting.name }} ({{ deleting.member_number }})? Only members with no contributions, loans, shares or fines can be deleted. Otherwise deactivate them.
+            <template v-slot:header>
+                <h4>Alert</h4>
             </template>
-            <template v-slot:footer><button @click="destroy" class="btn btn-danger" :disabled="saving">Delete</button></template>
+            <template v-slot:body>
+                Delete {{ deleting.name }} ({{ deleting.member_number }})? Only members with no contributions, loans,
+                shares or fines can be deleted. Otherwise deactivate them.
+            </template>
+            <template v-slot:footer><button @click="destroy" class="btn btn-danger"
+                    :disabled="saving">Delete</button></template>
         </ConfirmModal>
 
-        <ImportModal v-if="importModal" title="Import members" template-url="/members/import/template" upload-url="/members/import" :group-id="groupId"
-            :columns="importColumns" note="Keep the first row as the headings. Up to 500 members per file. People already in the group are skipped. New members get the group's Ordinary Member type and the Member role."
+        <ImportModal v-if="importModal" title="Import members" template-url="/members/import/template"
+            upload-url="/members/import" :group-id="groupId" :columns="importColumns"
+            note="Keep the first row as the headings. Up to 500 members per file. People already in the group are skipped. New members get the group's Ordinary Member type and the Member role."
             @close="importModal = false" @imported="load(1)" />
     </div>
 </template>
@@ -157,4 +208,3 @@ export default {
     },
 };
 </script>
-

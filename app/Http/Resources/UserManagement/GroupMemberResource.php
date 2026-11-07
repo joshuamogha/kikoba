@@ -32,6 +32,8 @@ class GroupMemberResource extends JsonResource
                 'id' => $this->membershipType->id,
                 'name' => $this->membershipType->name,
             ],
+            'shares_count' => (int) ($this->shares_count ?? 0),
+            'shares_amount' => (float) ($this->shares_amount ?? 0),
             'membership_status' => $this->membership_status,
             'joined_at' => $this->joined_at,
             'left_at' => $this->left_at,

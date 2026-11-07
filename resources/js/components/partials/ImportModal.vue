@@ -2,9 +2,25 @@
     <LargeModal @close="$emit('close')">
         <template v-slot:header><h4>{{ title }}</h4></template>
         <template v-slot:body>
+            <div v-if="fields.length" class="row mb-2">
+                <div v-for="field in fields" :key="field.name" class="col-md-6">
+                    <div v-if="field.type === 'checkbox'" class="form-check mt-4">
+                        <input :id="`import-${field.name}`" v-model="values[field.name]" type="checkbox" class="form-check-input" />
+                        <label :for="`import-${field.name}`" class="form-check-label">{{ field.label }}</label>
+                    </div>
+                    <div v-else class="mb-2">
+                        <label class="form-label">{{ field.label }}<span v-if="field.required" class="text-danger"> *</span></label>
+                        <select v-model="values[field.name]" class="form-select">
+                            <option value="">{{ field.placeholder ?? "Select..." }}</option>
+                            <option v-for="option in field.options" :key="option.value" :value="option.value">{{ option.label }}</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <h6 class="mb-0">1. Download the template</h6>
-                <a :href="templateUrl" class="btn btn-outline-primary btn-sm" download><i class="bi bi-download"></i> Download template</a>
+                <a :href="downloadUrl" class="btn btn-outline-primary btn-sm" download><i class="bi bi-download"></i> Download template</a>
             </div>
             <table class="table table-sm table-bordered mb-3">
                 <thead><tr><th>Column</th><th>Required</th><th>What to enter</th><th>Example</th></tr></thead>
@@ -43,7 +59,7 @@
             </div>
         </template>
         <template v-slot:footer>
-            <button @click="upload" class="btn btn-primary" :disabled="!file || saving"><i class="bi bi-upload"></i> Upload and import</button>
+            <button @click="upload" class="btn btn-primary" :disabled="!file || saving || missingField"><i class="bi bi-upload"></i> Upload and import</button>
         </template>
     </LargeModal>
 </template>
@@ -57,12 +73,35 @@ export default {
         groupId: { type: [String, Number], required: true },
         columns: { type: Array, required: true },
         note: { type: String, default: "" },
+        /** Extra choices sent with the upload and the template link: { name, label, type: "select" | "checkbox", options, required, default }. */
+        fields: { type: Array, default: () => [] },
     },
 
     emits: ["close", "imported"],
 
     data() {
-        return { file: null, dragging: false, result: null, error: "", saving: false };
+        return {
+            file: null,
+            dragging: false,
+            result: null,
+            error: "",
+            saving: false,
+            values: Object.fromEntries(this.fields.map((field) => [field.name, field.default ?? (field.type === "checkbox" ? false : "")])),
+        };
+    },
+
+    computed: {
+        missingField() {
+            return this.fields.some((field) => field.required && !this.values[field.name]);
+        },
+
+        downloadUrl() {
+            const query = new URLSearchParams({ group_id: this.groupId });
+
+            this.fields.forEach((field) => query.set(field.name, field.type === "checkbox" ? (this.values[field.name] ? "1" : "0") : this.values[field.name]));
+
+            return `${this.templateUrl}${this.templateUrl.includes("?") ? "&" : "?"}${query.toString()}`;
+        },
     },
 
     methods: {
@@ -94,6 +133,7 @@ export default {
             const body = new FormData();
             body.append("group_id", this.groupId);
             body.append("file", this.file);
+            this.fields.forEach((field) => body.append(field.name, field.type === "checkbox" ? (this.values[field.name] ? "1" : "0") : this.values[field.name]));
 
             this.saving = true;
             this.error = "";

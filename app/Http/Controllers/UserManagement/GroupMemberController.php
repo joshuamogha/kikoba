@@ -43,7 +43,11 @@ class GroupMemberController extends Controller
         $search = trim($request->string('q')->toString());
         $status = $request->string('status')->toString();
 
+        $purchases = fn ($query) => $query->where('transaction_type', 'purchase')->where('status', 'approved');
+
         $members = $group->groupMembers()
+            ->withSum(['memberShareTransactions as shares_count' => $purchases], 'number_of_shares')
+            ->withSum(['memberShareTransactions as shares_amount' => $purchases], 'total_amount')
             ->with([
                 'user:id,email',
                 'membershipType:id,name',

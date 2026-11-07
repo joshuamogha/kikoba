@@ -9,6 +9,9 @@
                 </div>
             </div>
         </div>
+        <div class="card-body border-bottom pb-1">
+            <ListFilters :model-value="filters" :members="filterMembers" @update:modelValue="onFilters" />
+        </div>
         <div class="card-body border-bottom">
             <div class="row text-center">
                 <div class="col-6">
@@ -104,6 +107,8 @@ export default {
             totals: { shares: 0, amount: 0 },
             meta: { current_page: 1, last_page: 1, from: 0, to: 0, total: 0 },
             members: [],
+            filters: {},
+            filterMembers: [],
             defaultPrice: 0,
             minShares: 0,
             maxShares: null,
@@ -137,17 +142,23 @@ export default {
     methods: {
         load(page = 1) {
             axios
-                .get(this.base, { params: { page } })
+                .get(this.base, { params: { page, ...Object.fromEntries(Object.entries(this.filters).filter(([, value]) => value !== "" && value !== null)) } })
                 .then((response) => {
                     this.items = response.data.data;
                     this.meta = response.data.meta;
                     this.totals = response.data.totals ?? this.totals;
                     this.members = response.data.meta_options?.members ?? [];
+                    this.filterMembers = response.data.filters?.members ?? [];
                     this.defaultPrice = response.data.meta_options?.price_per_share ?? 0;
                     this.minShares = response.data.meta_options?.minimum_shares ?? 0;
                     this.maxShares = response.data.meta_options?.maximum_shares ?? null;
                 })
                 .catch(this.handleError);
+        },
+
+        onFilters(filters) {
+            this.filters = filters;
+            this.load(1);
         },
 
         openAddModal() {

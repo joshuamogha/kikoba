@@ -74,6 +74,20 @@ trait ReadsCsvUpload
         return preg_match('/^[67][0-9]{8}$/', $phone) === 1 ? '0'.$phone : $phone;
     }
 
+    /**
+     * An amount typed in a file ("20000", "20,000" or "20000.50") in cents, or null when it is not a positive amount.
+     */
+    protected function amountInCents(string $text): ?int
+    {
+        $amount = str_replace(',', '', trim($text));
+
+        if (preg_match('/^\d{1,12}(\.\d{1,2})?$/', $amount) !== 1 || (float) $amount <= 0) {
+            return null;
+        }
+
+        return (int) round((float) $amount * 100);
+    }
+
     private function isExcelFile(UploadedFile $file): bool
     {
         return strtolower($file->getClientOriginalExtension()) === 'xlsx';
