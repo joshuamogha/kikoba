@@ -5,6 +5,7 @@ namespace App\Http\Requests\ShareManagement;
 use App\Models\ShareManagement\MemberShareTransaction;
 use App\Support\BillingPeriod;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
@@ -40,7 +41,7 @@ class StoreGroupShareRequest extends FormRequest
     }
 
     /**
-     * The group's share price must be set, and the member's total holding must stay within the group's share limits.
+     * The group's share price must be set, and the member's shares for the month must stay within the group's share limits.
      *
      * @return array<int, \Closure(Validator): void>
      */
@@ -59,16 +60,19 @@ class StoreGroupShareRequest extends FormRequest
                 return;
             }
 
+            $period = BillingPeriod::start($this->input('period'), Carbon::parse($this->input('transaction_date')));
+
             $held = (int) MemberShareTransaction::query()
                 ->where('group_member_id', $this->integer('group_member_id'))
                 ->where('transaction_type', 'purchase')
+                ->whereDate('period_start', $period->toDateString())
                 ->sum('number_of_shares');
             $total = $held + $this->integer('number_of_shares');
 
             if ($total < $setting->minimum_shares) {
-                $validator->errors()->add('number_of_shares', "A member must hold at least {$setting->minimum_shares} shares (currently {$held}).");
+                $validator->errors()->add('number_of_shares', "A member must buy at least {$setting->minimum_shares} shares in {$period->format('F Y')} (currently {$held}).");
             } elseif ($setting->maximum_shares !== null && $total > $setting->maximum_shares) {
-                $validator->errors()->add('number_of_shares', "A member can hold at most {$setting->maximum_shares} shares (currently {$held}).");
+                $validator->errors()->add('number_of_shares', "A member can buy at most {$setting->maximum_shares} shares in {$period->format('F Y')} (currently {$held}).");
             }
         }];
     }

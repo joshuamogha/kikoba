@@ -87,16 +87,20 @@ test('bad rows are skipped with the line number while good rows still import', f
         ->and($this->group->memberShareTransactions()->count())->toBe(1);
 });
 
-test('suspended members are skipped and the group maximum applies across rows', function () {
+test('suspended members are skipped and the group maximum applies to each month, not the whole year', function () {
     $this->group->groupSetting()->update(['maximum_shares' => 5]);
     $this->friendMember->update(['membership_status' => 'suspended']);
+    $phone = $this->plainMember->phone_number;
 
-    $response = importShares($this, "phone_number,amount,transaction_date\n{$this->plainMember->phone_number},15000,2026-01-10\n{$this->plainMember->phone_number},15000,2026-01-10\n{$this->friendMember->phone_number},5000,2026-01-10\n")
-        ->assertOk()->assertJsonPath('data.imported', 1);
+    $response = importShares($this, "phone_number,amount,transaction_date\n{$phone},15000,2026-01-10\n{$phone},15000,2026-01-20\n{$phone},15000,2026-02-10\n{$phone},25000,2026-03-10\n{$phone},5000,2026-03-11\n{$this->friendMember->phone_number},5000,2026-01-10\n")
+        ->assertOk()->assertJsonPath('data.imported', 3);
 
     $reasons = collect($response->json('data.skipped'))->pluck('reason', 'row');
 
-    expect($reasons[3])->toContain('at most 5')->and($reasons[4])->toContain('not active');
+    expect($reasons[3])->toContain('at most 5 shares in January 2026')
+        ->and($reasons[6])->toContain('at most 5 shares in March 2026')
+        ->and($reasons[7])->toContain('not active')
+        ->and($this->group->memberShareTransactions()->sum('number_of_shares'))->toBe(3 + 3 + 5);
 });
 
 test('nothing is imported until the group has a share price', function () {

@@ -83,7 +83,7 @@ test('shares cannot be recorded until the group has a share price', function () 
         ->assertUnprocessable()->assertJsonValidationErrors('number_of_shares');
 });
 
-test('a member\'s total shares must stay within the group minimum and maximum', function () {
+test('a member\'s shares for the month must stay within the group minimum and maximum', function () {
     $this->group->groupSetting()->update(['minimum_shares' => 2, 'maximum_shares' => 10]);
     $url = route('groups.shares.store', $this->group);
 
@@ -92,6 +92,8 @@ test('a member\'s total shares must stay within the group minimum and maximum', 
     $this->actingAs($this->chair)->postJson($url, sharePayload($this->plainMember, ['number_of_shares' => 3]))
         ->assertUnprocessable()->assertJsonValidationErrors('number_of_shares');
     $this->actingAs($this->chair)->postJson($url, sharePayload($this->plainMember, ['number_of_shares' => 2]))->assertCreated();
+
+    $this->actingAs($this->chair)->postJson($url, sharePayload($this->plainMember, ['number_of_shares' => 9, 'period' => now()->subMonth()->format('Y-m')]))->assertCreated();
 });
 
 test('leaders get the member list and default price', function () {

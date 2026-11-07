@@ -111,10 +111,14 @@ class ImportMemberShares
 
         $period = BillingPeriod::start(null, $date);
 
-        $held = (int) MemberShareTransaction::query()->where('group_member_id', $member->id)->where('transaction_type', 'purchase')->sum('number_of_shares');
+        $held = (int) MemberShareTransaction::query()
+            ->where('group_member_id', $member->id)
+            ->where('transaction_type', 'purchase')
+            ->whereDate('period_start', $period->toDateString())
+            ->sum('number_of_shares');
 
         if ($maximumShares !== null && $held + $shares > $maximumShares) {
-            return ["A member can hold at most {$maximumShares} shares (currently {$held}).", $member->name];
+            return ["A member can buy at most {$maximumShares} shares in {$period->format('F Y')} (currently {$held}).", $member->name];
         }
 
         $transaction = $group->memberShareTransactions()->forceCreate([

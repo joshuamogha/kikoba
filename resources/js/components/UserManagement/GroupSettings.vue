@@ -37,12 +37,12 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <BaseInput v-model="form.minimum_shares" type="number" min="0"
-                                    label="Minimum shares per member" :disabled="!canManage"
+                                    label="Minimum shares per member (per month)" :disabled="!canManage"
                                     :error="errors.minimum_shares?.[0]" />
                             </div>
                             <div class="col-md-6">
                                 <BaseInput v-model="form.maximum_shares" type="number" min="0"
-                                    label="Maximum shares (optional)" :disabled="!canManage"
+                                    label="Maximum shares per month (optional)" :disabled="!canManage"
                                     :error="errors.maximum_shares?.[0]" />
                             </div>
                         </div>
