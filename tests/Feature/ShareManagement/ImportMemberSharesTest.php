@@ -33,7 +33,7 @@ test('the template is a csv with the headings and sample rows', function () {
     $response = $this->actingAs($this->treasurer)->get(route('groups.shares.template', $this->group))->assertOk()->assertDownload('member-shares-import-template.csv');
     $lines = array_values(array_filter(explode("\n", str_replace("\r", '', $response->streamedContent()))));
 
-    expect($lines[0])->toBe('phone_number,amount,transaction_date,reference')->and($lines)->toHaveCount(3);
+    expect($lines[0])->toBe('phone_number,amount,transaction_date,receipt')->and($lines)->toHaveCount(3);
 
     $this->actingAs($this->plain)->get(route('groups.shares.template', $this->group))->assertForbidden();
 });

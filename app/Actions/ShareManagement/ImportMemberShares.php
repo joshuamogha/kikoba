@@ -29,7 +29,7 @@ class ImportMemberShares
     /**
      * @var array<int, string>
      */
-    public const OPTIONAL = ['reference'];
+    public const OPTIONAL = ['receipt', 'reference'];
 
     public function __construct(private RecordSharePurchase $recordPurchase) {}
 
@@ -112,10 +112,15 @@ class ImportMemberShares
         }
 
         $period = BillingPeriod::start(null, $date);
-        $reference = $row['reference'] === '' ? null : mb_substr($row['reference'], 0, 255);
+        $receipt = $row['receipt'] !== '' ? $row['receipt'] : $row['reference'];
+        $reference = $receipt === '' ? null : mb_substr($receipt, 0, 255);
 
-        if ($this->alreadyImported($member->id, $date, $reference, $amountInCents)) {
-            return ['Already imported: this member already has shares with the same date, amount and reference.', $member->name, 0];
+        if ($reference !== null && $this->receiptUsed($group, $reference)) {
+            return ["Already imported: receipt {$reference} is already recorded in this group.", $member->name, 0];
+        }
+
+        if ($reference === null && $this->alreadyImported($member->id, $date, $amountInCents)) {
+            return ['Already imported: this member already has shares with the same date and amount (and no receipt number to tell them apart).', $member->name, 0];
         }
 
         try {
@@ -132,16 +137,28 @@ class ImportMemberShares
     }
 
     /**
-     * Whether the member already has share purchases on the date, with the same reference, adding up to the row's amount. A purchase
-     * that was carried over several months adds up across its records, so uploading the same file twice records nothing new.
+     * Whether a share purchase with this receipt number is already recorded in the group, however it was entered. A receipt is
+     * unique, so it identifies a payment that was imported before, and the same file can be uploaded again safely.
      */
-    private function alreadyImported(int $memberId, Carbon $date, ?string $reference, int $amountInCents): bool
+    private function receiptUsed(Group $group, string $receipt): bool
+    {
+        return $group->memberShareTransactions()
+            ->where('transaction_type', 'purchase')
+            ->whereRaw('lower(trim(reference)) = ?', [mb_strtolower(trim($receipt))])
+            ->exists();
+    }
+
+    /**
+     * Without a receipt number: whether the member already has purchases without a receipt on the date adding up to the amount.
+     * A purchase that was carried over several months adds up across its records.
+     */
+    private function alreadyImported(int $memberId, Carbon $date, int $amountInCents): bool
     {
         $total = MemberShareTransaction::query()
             ->where('group_member_id', $memberId)
             ->where('transaction_type', 'purchase')
             ->whereDate('transaction_date', $date->toDateString())
-            ->when($reference === null, fn ($query) => $query->whereNull('reference'), fn ($query) => $query->where('reference', $reference))
+            ->whereNull('reference')
             ->sum('total_amount');
 
         return $total > 0 && (int) round((float) $total * 100) === $amountInCents;

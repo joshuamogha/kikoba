@@ -27,7 +27,7 @@ function addSharesFund($test)
 function importShareRows($test, string $rows)
 {
     return $test->actingAs($test->chair)->postJson(route('groups.shares.import', $test->group), [
-        'file' => UploadedFile::fake()->createWithContent('shares.csv', "phone_number,amount,transaction_date,reference\n{$rows}"),
+        'file' => UploadedFile::fake()->createWithContent('shares.csv', "phone_number,amount,transaction_date,receipt\n{$rows}"),
     ])->assertOk();
 }
 
@@ -141,15 +141,43 @@ test('uploading the same file again records nothing new in shares or contributio
         ->and(PaymentTransaction::query()->count())->toBe($payments);
 });
 
-test('the same row twice in one file is imported once, and a different amount, date or reference is not a duplicate', function () {
+test('the receipt number identifies a payment: the same receipt is imported once, whatever else differs', function () {
+    addSharesFund($this);
+    $other = addMemberTo($this->group, User::factory()->create());
+    $phone = $this->member->phone_number;
+
+    $response = importShareRows($this, "{$phone},10000,2026-01-10,RCT-1\n{$phone},10000,2026-01-10,rct-1 \n{$phone},5000,2026-02-11,RCT-1\n{$other->phone_number},10000,2026-01-10,RCT-1\n{$phone},10000,2026-01-10,RCT-2\n")
+        ->assertJsonPath('data.imported', 2)->assertJsonCount(3, 'data.skipped');
+
+    expect($response->json('data.skipped.0.reason'))->toContain('Already imported: receipt')
+        ->and(MemberShareTransaction::query()->count())->toBe(2)
+        ->and($this->group->contributions()->count())->toBe(2);
+
+    importShareRows($this, "{$phone},10000,2026-01-10,RCT-1\n{$phone},10000,2026-01-10,RCT-2\n")->assertJsonPath('data.imported', 0);
+
+    expect(MemberShareTransaction::query()->count())->toBe(2);
+});
+
+test('the same receipt in another group is not a duplicate', function () {
+    $otherGroup = createGroupFor(User::factory()->create(), ['name' => 'Other']);
+    $otherGroup->groupSetting()->update(['share_price' => 5000]);
+    $stranger = addMemberTo($otherGroup, User::factory()->create());
+
+    $this->actingAs($otherGroup->creator ?? User::query()->find($otherGroup->created_by))->postJson(route('groups.shares.import', $otherGroup), [
+        'file' => UploadedFile::fake()->createWithContent('shares.csv', "phone_number,amount,transaction_date,receipt\n{$stranger->phone_number},5000,2026-01-10,RCT-1\n"),
+    ])->assertOk()->assertJsonPath('data.imported', 1);
+
+    importShareRows($this, "{$this->member->phone_number},5000,2026-01-10,RCT-1\n")->assertJsonPath('data.imported', 1);
+});
+
+test('without receipts the same member, date and amount is a duplicate, while other amounts and dates are not', function () {
     addSharesFund($this);
     $phone = $this->member->phone_number;
 
-    importShareRows($this, "{$phone},10000,2026-01-10,A\n{$phone},10000,2026-01-10,A\n{$phone},10000,2026-01-10,B\n{$phone},5000,2026-01-10,A\n{$phone},10000,2026-01-11,A\n")
-        ->assertJsonPath('data.imported', 4)->assertJsonCount(1, 'data.skipped');
+    importShareRows($this, "{$phone},10000,2026-01-10,\n{$phone},10000,2026-01-10,\n{$phone},5000,2026-01-10,\n{$phone},10000,2026-01-11,\n")
+        ->assertJsonPath('data.imported', 3)->assertJsonCount(1, 'data.skipped');
 
-    expect(MemberShareTransaction::query()->count())->toBe(4)
-        ->and($this->group->contributions()->count())->toBe(4);
+    expect(MemberShareTransaction::query()->count())->toBe(3);
 });
 
 test('a purchase already recorded by hand counts as imported', function () {
