@@ -50,6 +50,7 @@ class LoanProductController extends Controller
                 'interest_methods' => $this->options($group->loanInterestMethods()->where('is_active', true)->orderBy('display_order')->orderBy('id')),
                 'defaults' => [
                     'interest_rate' => (float) $setting->default_loan_interest_rate,
+                    'interest_period' => $setting->default_interest_period,
                     'maximum_savings_multiplier' => (float) $setting->maximum_loan_multiplier,
                     'maximum_duration_months' => $setting->default_loan_duration_months,
                     'grace_period_days' => $setting->loan_grace_period_days,

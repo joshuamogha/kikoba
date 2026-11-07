@@ -31,6 +31,7 @@ class GroupSettingResource extends JsonResource
             'minimum_shares' => $this->minimum_shares,
             'maximum_shares' => $this->maximum_shares,
             'default_loan_interest_rate' => $this->default_loan_interest_rate,
+            'default_interest_period' => $this->default_interest_period,
             'maximum_loan_multiplier' => $this->maximum_loan_multiplier,
             'default_loan_duration_months' => $this->default_loan_duration_months,
             'loan_grace_period_days' => $this->loan_grace_period_days,

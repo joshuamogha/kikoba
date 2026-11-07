@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable([
     'contribution_frequency_id', 'loan_interest_method_id', 'penalty_type_id',
     'minimum_contribution', 'maximum_contribution', 'share_price', 'minimum_shares', 'maximum_shares',
-    'default_loan_interest_rate', 'maximum_loan_multiplier', 'default_loan_duration_months', 'loan_grace_period_days',
+    'default_loan_interest_rate', 'default_interest_period', 'maximum_loan_multiplier', 'default_loan_duration_months', 'loan_grace_period_days',
     'late_payment_penalty_value', 'loan_guarantors_required', 'withdrawal_approvals_required',
     'allow_partial_contributions', 'allow_multiple_loans',
 ])]

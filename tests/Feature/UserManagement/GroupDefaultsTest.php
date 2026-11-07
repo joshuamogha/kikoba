@@ -20,6 +20,7 @@ test('a group created through the app is ready to use straight away', function (
 
     expect((float) $setting->default_loan_interest_rate)->toBe(10.0)
         ->and((float) $setting->maximum_loan_multiplier)->toBe(2.0)
+        ->and($setting->default_interest_period)->toBe('per_loan')
         ->and((float) $setting->share_price)->toBe(5000.0)
         ->and($setting->contributionFrequency->name ?? null)->toStartWith('Monthly')
         ->and($group->groupFunds()->pluck('code')->sort()->values()->all())->toBe(['GEN', 'SAV', 'SHR', 'SOC'])
@@ -28,6 +29,7 @@ test('a group created through the app is ready to use straight away', function (
         ->and($group->loanTypes()->count())->toBe(3)
         ->and($group->loanProducts()->count())->toBe(3)
         ->and($group->loanProducts()->pluck('interest_rate')->map(fn ($rate) => (float) $rate)->unique()->all())->toBe([10.0])
+        ->and($group->loanProducts()->pluck('interest_period')->unique()->all())->toBe(['per_loan'])
         ->and($group->loanProducts()->pluck('group_fund_id')->unique()->all())->toBe([$group->groupFunds()->where('code', 'SAV')->value('id')]);
 
     $cycle = $group->financialCycles()->sole();

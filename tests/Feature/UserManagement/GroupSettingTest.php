@@ -87,3 +87,17 @@ test('lookups from another group and inverted limits are rejected', function () 
         'maximum_shares' => 0,
     ]))->assertUnprocessable()->assertJsonValidationErrors(['penalty_type_id', 'maximum_contribution', 'maximum_shares']);
 });
+
+test('the way interest is charged is a group setting, defaults to a fixed percentage of the loan, and feeds new loan products', function () {
+    $chair = User::factory()->create();
+    $group = createGroupFor($chair);
+
+    expect($group->ensureGroupSetting()->default_interest_period)->toBe('per_loan');
+
+    $this->actingAs($chair)->putJson(route('groups.settings.update', $group), validSettings($group, ['default_interest_period' => 'per_month']))->assertOk()
+        ->assertJsonPath('data.default_interest_period', 'per_month');
+    $this->actingAs($chair)->putJson(route('groups.settings.update', $group), validSettings($group, ['default_interest_period' => 'weekly']))
+        ->assertUnprocessable()->assertJsonValidationErrors('default_interest_period');
+
+    $this->actingAs($chair)->getJson(route('loan-products.index', ['group_id' => $group->id]))->assertJsonPath('options.defaults.interest_period', 'per_month');
+});

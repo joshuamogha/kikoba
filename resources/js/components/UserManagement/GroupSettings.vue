@@ -57,6 +57,10 @@
                         <BaseSelect v-model="form.loan_interest_method_id" label="Interest method"
                             :options="form.options.loan_interest_methods" :disabled="!canManage"
                             :error="errors.loan_interest_method_id?.[0]" />
+                        <BaseSelect v-model="form.default_interest_period" label="How the interest rate is charged" :options="interestPeriods"
+                            :disabled="!canManage" :error="errors.default_interest_period?.[0]" />
+                        <p class="small text-muted">{{ interestExample(form.default_interest_period, form.default_loan_interest_rate) }}
+                            New loan products start with this choice; each product can still be changed.</p>
                         <div class="row">
                             <div class="col-md-6">
                                 <BaseInput v-model="form.default_loan_interest_rate" type="number" min="0" step="0.01"
@@ -115,6 +119,8 @@
 </template>
 
 <script>
+import { interestExample, interestPeriods } from "../../utils/interestExample";
+
 const booleans = ["allow_partial_contributions", "allow_multiple_loans"];
 
 export default {
@@ -124,7 +130,7 @@ export default {
     },
 
     data() {
-        return { form: null, errors: {}, saving: false };
+        return { form: null, errors: {}, saving: false, interestPeriods };
     },
 
     computed: {
@@ -141,6 +147,8 @@ export default {
     },
 
     methods: {
+        interestExample,
+
         save() {
             this.saving = true;
             this.errors = {};

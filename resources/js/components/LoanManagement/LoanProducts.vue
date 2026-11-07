@@ -52,6 +52,7 @@
                     <div class="col-md-6"><BaseSelect v-model="form.repayment_frequency_id" label="Repayment frequency" :options="options.repayment_frequencies" :error="errors.repayment_frequency_id?.[0]" /></div>
                     <div class="col-md-6"><BaseSelect v-model="form.loan_interest_method_id" label="Interest method" :options="options.interest_methods" :error="errors.loan_interest_method_id?.[0]" /></div>
                     <div class="col-md-6"><BaseSelect v-model="form.interest_period" label="Rate is charged" :options="periods" :error="errors.interest_period?.[0]" /></div>
+                    <div class="col-md-12"><p class="small text-muted">{{ interestExample(form.interest_period, form.interest_rate) }}</p></div>
                     <div class="col-md-6"><BaseInput v-model="form.interest_rate" type="number" min="0" step="0.01" label="Interest rate (%)" :error="errors.interest_rate?.[0]" /></div>
                     <div class="col-md-6"><BaseInput v-model="form.maximum_savings_multiplier" type="number" min="0" step="0.1" label="Maximum loan (× member savings, 0 = no cap)" :error="errors.maximum_savings_multiplier?.[0]" /></div>
                     <div class="col-md-6"><BaseInput v-model="form.minimum_amount" type="number" min="0" step="0.01" label="Minimum amount" :error="errors.minimum_amount?.[0]" /></div>
@@ -79,6 +80,7 @@
 </template>
 
 <script>
+import { interestExample, interestPeriods } from "../../utils/interestExample";
 import paymentPage from "../../utils/paymentPage";
 
 export default {
@@ -91,15 +93,13 @@ export default {
                 { value: "installments", label: "Installments by repayment frequency" },
                 { value: "lump_sum", label: "One payment at the end of the term" },
             ],
-            periods: [
-                { value: "per_month", label: "Per month" },
-                { value: "per_year", label: "Per year" },
-                { value: "per_loan", label: "Once for the whole loan" },
-            ],
+            periods: interestPeriods,
         };
     },
 
     methods: {
+        interestExample,
+
         periodLabel(period) {
             return { per_month: "per month", per_year: "per year", per_loan: "per loan" }[period] ?? period;
         },
@@ -118,7 +118,7 @@ export default {
 
             return {
                 id: null, name: "", code: "", description: "", group_fund_id: "", repayment_frequency_id: "", loan_interest_method_id: "",
-                interest_period: "per_month", interest_rate: defaults.interest_rate ?? 0, maximum_savings_multiplier: defaults.maximum_savings_multiplier ?? 3,
+                interest_period: defaults.interest_period ?? "per_loan", interest_rate: defaults.interest_rate ?? 0, maximum_savings_multiplier: defaults.maximum_savings_multiplier ?? 3,
                 minimum_amount: 0, maximum_amount: "", minimum_duration_months: 1, maximum_duration_months: defaults.maximum_duration_months ?? 12,
                 grace_period_days: defaults.grace_period_days ?? 0, guarantors_required: defaults.guarantors_required ?? 0, status: "active",
                 repayment_mode: "installments", ranges: [],

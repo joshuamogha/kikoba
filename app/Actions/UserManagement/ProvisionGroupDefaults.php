@@ -148,7 +148,7 @@ class ProvisionGroupDefaults
                 'maximum_amount' => $maxAmount,
                 'maximum_savings_multiplier' => config('group_defaults.settings.maximum_loan_multiplier'),
                 'interest_rate' => config('group_defaults.loan_product_interest_rate'),
-                'interest_period' => config('group_defaults.loan_product_interest_period'),
+                'interest_period' => $group->groupSetting->default_interest_period ?? config('group_defaults.settings.default_interest_period'),
                 'minimum_duration_months' => $minMonths,
                 'maximum_duration_months' => $maxMonths,
                 'grace_period_days' => config('group_defaults.settings.loan_grace_period_days'),

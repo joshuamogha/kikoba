@@ -83,6 +83,7 @@ return [
         'minimum_shares' => 1,
         'maximum_shares' => 40,
         'default_loan_interest_rate' => 10,
+        'default_interest_period' => 'per_loan',
         'maximum_loan_multiplier' => 2,
         'default_loan_duration_months' => 6,
         'loan_grace_period_days' => 7,
@@ -122,7 +123,6 @@ return [
     | repayment: [code, name, minimum months, maximum months, minimum amount, maximum amount].
     */
     'loan_product_interest_rate' => 10,
-    'loan_product_interest_period' => 'per_month',
     'loan_products' => [
         ['DHARURA', 'Mkopo wa Dharura', 1, 3, 40000, 500000],
         ['MAENDELEO', 'Mkopo wa Maendeleo', 3, 12, 100000, 1000000],
