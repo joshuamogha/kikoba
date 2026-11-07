@@ -2,7 +2,10 @@
 
 namespace App\Actions\ShareManagement;
 
+use App\Actions\PaymentManagement\RecordPaymentTransaction;
 use App\Actions\PaymentManagement\ResolveFinancialCycle;
+use App\Models\PaymentManagement\Contribution;
+use App\Models\PaymentManagement\GroupFund;
 use App\Models\ShareManagement\MemberShareTransaction;
 use App\Models\UserManagement\Group;
 use App\Models\UserManagement\GroupMember;
@@ -18,7 +21,7 @@ class RecordSharePurchase
      */
     public const MAX_MONTHS = 12;
 
-    public function __construct(private ResolveFinancialCycle $resolveCycle) {}
+    public function __construct(private ResolveFinancialCycle $resolveCycle, private RecordPaymentTransaction $recordPayment) {}
 
     /**
      * How many shares fit in each month, starting with $startPeriod. When the member's monthly maximum is reached, the rest of the
@@ -90,11 +93,77 @@ class RecordSharePurchase
 
                 $transaction->withoutTimestamps(fn () => $transaction->update(['transaction_number' => sprintf('SHR-%d-%06d', $date->year, $transaction->id)]));
 
+                $this->recordContribution($transaction, $approver, $createdAt);
+
                 $records[] = $transaction;
             }
 
             return $records;
         });
+    }
+
+    /**
+     * Record the money paid for a share purchase as an approved contribution to the group's Shares fund (with its payment
+     * transaction), and link it to the purchase. Nothing is recorded when the group has no Shares fund or no payment method,
+     * or when the purchase already has a contribution.
+     */
+    public function recordContribution(MemberShareTransaction $purchase, User $approver, ?Carbon $createdAt = null): ?Contribution
+    {
+        $group = $purchase->group;
+        $fund = $this->sharesFund($group);
+        $methodId = $group->paymentMethods()->where('code', 'CASH')->value('id') ?? $group->paymentMethods()->orderBy('id')->value('id');
+
+        if ($purchase->contribution_id !== null || $fund === null || $methodId === null) {
+            return null;
+        }
+
+        $stamps = $createdAt === null ? [] : ['created_at' => $createdAt, 'updated_at' => $createdAt];
+
+        $contribution = $group->contributions()->forceCreate([
+            'group_id' => $group->id,
+            'financial_cycle_id' => $purchase->financial_cycle_id,
+            'group_member_id' => $purchase->group_member_id,
+            'contribution_number' => 'PENDING-'.uniqid(),
+            'contribution_date' => $purchase->transaction_date->toDateString(),
+            'total_amount' => $purchase->total_amount,
+            'payment_method_id' => $methodId,
+            'external_reference' => $purchase->reference,
+            'status' => 'approved',
+            'notes' => "Share purchase {$purchase->transaction_number}: {$purchase->number_of_shares} shares",
+            'received_by' => $approver->id,
+            'approved_by' => $approver->id,
+            'approved_at' => $createdAt ?? now(),
+            ...$stamps,
+        ]);
+
+        $period = $purchase->period_start ?? $purchase->transaction_date;
+
+        $contribution->contributionItems()->forceCreate([
+            'contribution_id' => $contribution->id,
+            'group_fund_id' => $fund->id,
+            'period_start' => $period->copy()->startOfMonth()->toDateString(),
+            'period_end' => $period->copy()->endOfMonth()->toDateString(),
+            'amount' => $purchase->total_amount,
+            ...$stamps,
+        ]);
+
+        $contribution->withoutTimestamps(fn () => $contribution->update(['contribution_number' => sprintf('CON-%d-%06d', $purchase->transaction_date->year, $contribution->id)]));
+        $purchase->withoutTimestamps(fn () => $purchase->update(['contribution_id' => $contribution->id]));
+        $this->recordPayment->handle($contribution, $approver);
+
+        return $contribution;
+    }
+
+    /**
+     * The group's active fund for share capital (fund type code SHR).
+     */
+    public function sharesFund(Group $group): ?GroupFund
+    {
+        return $group->groupFunds()
+            ->where('status', 'active')
+            ->whereHas('fundType', fn ($type) => $type->where('code', 'SHR'))
+            ->orderBy('id')
+            ->first();
     }
 
     /**
