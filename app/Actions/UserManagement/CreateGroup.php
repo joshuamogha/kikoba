@@ -16,9 +16,9 @@ class CreateGroup
      *
      * @param  array<string, mixed>  $data
      */
-    public function handle(User $creator, array $data): Group
+    public function handle(User $creator, array $data, bool $withDefaults = true): Group
     {
-        return DB::transaction(function () use ($creator, $data): Group {
+        return DB::transaction(function () use ($creator, $data, $withDefaults): Group {
             $group = Group::query()->create([
                 ...$data,
                 'currency' => $data['currency'] ?? 'TZS',
@@ -26,8 +26,14 @@ class CreateGroup
                 'created_by' => $creator->id,
             ]);
 
-            $this->provisionLookups($group->id);
-            $group->ensureGroupSetting();
+            $provisioner = app(ProvisionGroupDefaults::class);
+            $provisioner->provisionLookups($group->id);
+
+            if ($withDefaults) {
+                $provisioner->handle($group, $creator->id);
+            } else {
+                $group->ensureGroupSetting();
+            }
 
             $roles = $this->ensureSystemRoles();
             $founderTypeId = DB::table('membership_types')
@@ -67,21 +73,7 @@ class CreateGroup
      */
     public function provisionLookups(int $groupId): void
     {
-        $now = now();
-
-        foreach (config('group_defaults.lookups') as $table => $rows) {
-            foreach ($rows as $index => $row) {
-                DB::table($table)->insert([
-                    'group_id' => $groupId,
-                    'description' => null,
-                    ...$row,
-                    'display_order' => $index + 1,
-                    'is_active' => true,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ]);
-            }
-        }
+        app(ProvisionGroupDefaults::class)->provisionLookups($groupId);
     }
 
     /**

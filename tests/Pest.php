@@ -69,15 +69,18 @@ use App\Models\UserManagement\User;
 /**
  * Create a group exactly as a user would: the given user becomes its Chairperson.
  *
+ * Funds, cycles, fine types, loan types and loan products are skipped unless $withDefaults is true,
+ * so tests start from an empty group and build only what they need.
+ *
  * @param  array<string, mixed>  $attributes
  */
-function createGroupFor(User $chair, array $attributes = []): Group
+function createGroupFor(User $chair, array $attributes = [], bool $withDefaults = false): Group
 {
     return app(CreateGroup::class)->handle($chair, [
         'group_type_id' => GroupType::factory()->create()->id,
         'name' => 'Test Group',
         ...$attributes,
-    ]);
+    ], $withDefaults);
 }
 
 /**

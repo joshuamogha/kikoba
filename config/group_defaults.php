@@ -71,6 +71,64 @@ return [
         ],
     ],
 
+    /*
+    | The starting values of a new group's settings (group_settings). Lookup ids
+    | (contribution frequency, interest method, penalty type) are resolved by
+    | ProvisionGroupDefaults from the lookups above.
+    */
+    'settings' => [
+        'minimum_contribution' => 20000,
+        'maximum_contribution' => 100000,
+        'share_price' => 5000,
+        'minimum_shares' => 1,
+        'maximum_shares' => 40,
+        'default_loan_interest_rate' => 10,
+        'maximum_loan_multiplier' => 2,
+        'default_loan_duration_months' => 6,
+        'loan_grace_period_days' => 7,
+        'late_payment_penalty_value' => 5,
+        'loan_guarantors_required' => true,
+        'withdrawal_approvals_required' => true,
+        'allow_partial_contributions' => false,
+        'allow_multiple_loans' => false,
+    ],
+
+    /*
+    | Funds created for every new group: [code, name, description, minimum
+    | contribution, mandatory, distributable, loanable]. Mandatory funds use the
+    | monthly contribution frequency.
+    */
+    'funds' => [
+        ['SAV', 'Akiba (Savings)', 'Mandatory monthly member savings.', 20000, true, true, true],
+        ['SHR', 'Hisa (Shares)', 'Share capital bought by members.', 0, false, true, false],
+        ['SOC', 'Mfuko wa Jamii (Social Fund)', 'Welfare fund for funerals, weddings and emergencies.', 5000, true, false, false],
+        ['GEN', 'Mfuko Mkuu (General Fund)', 'Operating income and expenses of the group.', 0, false, true, false],
+    ],
+
+    /*
+    | Fine types: [code, name, description, default amount, calculation type].
+    */
+    'fine_types' => [
+        ['MISSED_CONTRIB', 'Kukosa mchango', 'Fine for not paying the monthly contribution.', 2000, 'fixed'],
+        ['LATE_MEETING', 'Kuchelewa kikao', 'Fine for arriving late to a meeting.', 1000, 'fixed'],
+        ['ABSENT_MEETING', 'Kukosa kikao', 'Fine for missing a meeting without permission.', 2000, 'fixed'],
+        ['LATE_LOAN', 'Kuchelewa kurejesha mkopo', 'Percentage of the installment charged when it is overdue.', 5, 'percentage'],
+    ],
+
+    'loan_types' => ['Emergency (Dharura)', 'Development (Maendeleo)', 'Education (Elimu)'],
+
+    /*
+    | Loan products, all on the Savings fund with flat interest and monthly
+    | repayment: [code, name, minimum months, maximum months, minimum amount, maximum amount].
+    */
+    'loan_product_interest_rate' => 10,
+    'loan_product_interest_period' => 'per_month',
+    'loan_products' => [
+        ['DHARURA', 'Mkopo wa Dharura', 1, 3, 40000, 500000],
+        ['MAENDELEO', 'Mkopo wa Maendeleo', 3, 12, 100000, 1000000],
+        ['ELIMU', 'Mkopo wa Elimu', 2, 12, 100000, 600000],
+    ],
+
     'system_roles' => [
         ['name' => 'Chairperson', 'description' => 'Mwenyekiti: leads the group and approves transactions.'],
         ['name' => 'Vice Chairperson', 'description' => 'Makamu Mwenyekiti: deputises the chairperson.'],
