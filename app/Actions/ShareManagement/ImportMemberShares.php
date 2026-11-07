@@ -118,7 +118,7 @@ class ImportMemberShares
             return ["A member can hold at most {$maximumShares} shares (currently {$held}).", $member->name];
         }
 
-        $transaction = $group->memberShareTransactions()->create([
+        $transaction = $group->memberShareTransactions()->forceCreate([
             'financial_cycle_id' => $this->resolveCycle->handle($group, $period, $user->id)->id,
             'group_member_id' => $member->id,
             'transaction_number' => 'PENDING-'.uniqid(),
@@ -131,9 +131,11 @@ class ImportMemberShares
             'status' => 'approved',
             'reference' => $row['reference'] === '' ? null : mb_substr($row['reference'], 0, 255),
             'approved_by' => $user->id,
+            'created_at' => $date,
+            'updated_at' => $date,
         ]);
 
-        $transaction->update(['transaction_number' => sprintf('SHR-%d-%06d', $date->year, $transaction->id)]);
+        $transaction->withoutTimestamps(fn () => $transaction->update(['transaction_number' => sprintf('SHR-%d-%06d', $date->year, $transaction->id)]));
 
         return [null, $member->name];
     }

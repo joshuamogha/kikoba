@@ -50,6 +50,8 @@ test('shares come from the amount and the period from the transaction date', fun
         ->and((float) $first->price_per_share)->toBe(5000.0)
         ->and($first->transaction_date->toDateString())->toBe('2026-01-15')
         ->and($first->period_start->toDateString())->toBe('2026-01-01')
+        ->and($first->created_at->toDateString())->toBe('2026-01-15')
+        ->and($first->updated_at->toDateString())->toBe('2026-01-15')
         ->and($first->reference)->toBe('Opening balance')
         ->and($first->status)->toBe('approved')
         ->and($first->transaction_number)->toBe(sprintf('SHR-2026-%06d', $first->id))
