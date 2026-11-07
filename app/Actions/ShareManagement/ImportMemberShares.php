@@ -25,18 +25,19 @@ class ImportMemberShares
      *
      * @var array<int, string>
      */
-    public const REQUIRED = ['phone_number', 'number_of_shares'];
+    public const REQUIRED = ['phone_number', 'amount', 'transaction_date'];
 
     /**
      * @var array<int, string>
      */
-    public const OPTIONAL = ['transaction_date', 'period', 'reference'];
+    public const OPTIONAL = ['reference'];
 
     public function __construct(private ResolveFinancialCycle $resolveCycle) {}
 
     /**
-     * Record share purchases from a CSV file. Each row names a member by phone number and how many shares they bought, at the group's
-     * share price, on the given date (today when empty). Rows that cannot be recorded are skipped and reported.
+     * Record share purchases from a CSV file. Each row names a member by phone number, the amount they paid and the date; the number of
+     * shares is the amount divided by the group's share price, and the period is the month of the date. Rows that cannot be recorded
+     * are skipped and reported.
      *
      * @return array{imported: int, skipped: array<int, array{row: int, name: string, phone: string, reason: string}>}
      *
@@ -89,22 +90,27 @@ class ImportMemberShares
             return ['The member is not active.', $member->name];
         }
 
-        if (preg_match('/^[1-9][0-9]{0,6}$/', $row['number_of_shares']) !== 1) {
-            return ['The number of shares must be a whole number of 1 or more.', $member->name];
+        $amount = str_replace(',', '', $row['amount']);
+
+        if (preg_match('/^\d{1,12}(\.\d{1,2})?$/', $amount) !== 1 || (float) $amount <= 0) {
+            return ['The amount must be a positive number.', $member->name];
         }
 
-        $shares = (int) $row['number_of_shares'];
+        $priceInCents = (int) round($price * 100);
+        $amountInCents = (int) round((float) $amount * 100);
+
+        if ($amountInCents % $priceInCents !== 0) {
+            return ['The amount must be a multiple of the share price ('.number_format($price, 2).').', $member->name];
+        }
+
+        $shares = intdiv($amountInCents, $priceInCents);
         $date = $this->parseDate($row['transaction_date']);
 
         if ($date === null || $date->isFuture()) {
-            return ['The date must be a past or current date written as YYYY-MM-DD.', $member->name];
+            return ['The transaction date is required, must be a past or current date and written as YYYY-MM-DD.', $member->name];
         }
 
-        if ($row['period'] !== '' && preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $row['period']) !== 1) {
-            return ['The period must be a month written as YYYY-MM.', $member->name];
-        }
-
-        $period = BillingPeriod::start($row['period'], $date);
+        $period = BillingPeriod::start(null, $date);
 
         $held = (int) MemberShareTransaction::query()->where('group_member_id', $member->id)->where('transaction_type', 'purchase')->sum('number_of_shares');
 
@@ -134,10 +140,6 @@ class ImportMemberShares
 
     private function parseDate(string $value): ?Carbon
     {
-        if ($value === '') {
-            return today();
-        }
-
         if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) !== 1) {
             return null;
         }

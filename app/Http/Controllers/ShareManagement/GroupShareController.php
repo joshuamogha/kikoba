@@ -109,8 +109,8 @@ class GroupShareController extends Controller
         return response()->streamDownload(function (): void {
             $out = fopen('php://output', 'w');
             fputcsv($out, [...ImportMemberShares::REQUIRED, ...ImportMemberShares::OPTIONAL], escape: '\\');
-            fputcsv($out, ['0712345678', '4', '2026-02-05', '2026-01', 'January shares paid in February'], escape: '\\');
-            fputcsv($out, ['+255754123456', '2', '', '', ''], escape: '\\');
+            fputcsv($out, ['0712345678', '20000', '2026-02-05', 'January shares paid in February'], escape: '\\');
+            fputcsv($out, ['+255754123456', '10000', '2026-03-10', ''], escape: '\\');
             fclose($out);
         }, 'member-shares-import-template.csv', ['Content-Type' => 'text/csv']);
     }

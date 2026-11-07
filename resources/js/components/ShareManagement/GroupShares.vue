@@ -62,7 +62,7 @@
         </div>
 
         <ImportModal v-if="importModal" title="Import member shares" :template-url="`${base}/import/template`" :upload-url="`${base}/import`" :group-id="groupId"
-            :columns="importColumns" note="The member is identified by phone number and must already be an active member of this group. Each row is recorded as an approved purchase at the group's current share price. A member's total cannot go above the group's maximum shares. Up to 500 rows per file."
+            :columns="importColumns" note="The member is identified by phone number and must already be an active member of this group. Each row is recorded as an approved purchase: shares = amount ÷ the group's current share price, in the month of the transaction date. A member's total cannot go above the group's maximum shares. Up to 500 rows per file."
             @close="importModal = false" @imported="load(1)" />
 
         <MediumModal v-if="formModal" @close="closeModal">
@@ -111,9 +111,8 @@ export default {
             importModal: false,
             importColumns: [
                 { name: "phone_number", required: true, description: "The member's phone number: it identifies the member. Spaces and dashes are ignored.", example: "0712345678" },
-                { name: "number_of_shares", required: true, description: "How many shares were bought (a whole number, 1 or more).", example: "4" },
-                { name: "transaction_date", required: false, description: "The date the member paid, as YYYY-MM-DD. Leave empty for today.", example: "2026-02-05" },
-                { name: "period", required: false, description: "The month the shares are for, as YYYY-MM. Leave empty to use the month of the date paid.", example: "2026-01" },
+                { name: "amount", required: true, description: "The total amount the member paid. It must be a multiple of the share price: the number of shares is the amount divided by the price.", example: "20000" },
+                { name: "transaction_date", required: true, description: "The date the member paid, as YYYY-MM-DD. Its month is the period the shares belong to.", example: "2026-02-05" },
                 { name: "reference", required: false, description: "A note or receipt number.", example: "Opening balance" },
             ],
             saving: false,

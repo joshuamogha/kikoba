@@ -73,13 +73,13 @@ test('share purchases record the month they are for and default to the month pai
     $this->actingAs($this->chair)->getJson(route('groups.shares.index', $this->group))->assertJsonPath('data.1.period', '2026-01');
 });
 
-test('the share import reads an optional period column and defaults it to the month paid', function () {
+test('the share import puts each purchase in the month of its transaction date', function () {
     $phone = $this->plainMember->phone_number;
-    $csv = "phone_number,number_of_shares,transaction_date,period\n{$phone},2,2026-02-05,2026-01\n{$phone},1,2026-03-02,\n{$phone},1,2026-03-03,2026-13\n";
+    $price = (float) $this->group->groupSetting->share_price;
+    $csv = "phone_number,amount,transaction_date\n{$phone},".($price * 2).",2026-02-05\n{$phone},{$price},2026-03-02\n";
 
-    $response = $this->actingAs($this->chair)->postJson(route('groups.shares.import', $this->group), ['file' => UploadedFile::fake()->createWithContent('shares.csv', $csv)])
+    $this->actingAs($this->chair)->postJson(route('groups.shares.import', $this->group), ['file' => UploadedFile::fake()->createWithContent('shares.csv', $csv)])
         ->assertOk()->assertJsonPath('data.imported', 2);
 
-    expect($response->json('data.skipped.0.row'))->toBe(4)->and($response->json('data.skipped.0.reason'))->toContain('YYYY-MM')
-        ->and($this->group->memberShareTransactions()->orderBy('id')->pluck('period_start')->map->toDateString()->all())->toBe(['2026-01-01', '2026-03-01']);
+    expect($this->group->memberShareTransactions()->orderBy('id')->pluck('period_start')->map->toDateString()->all())->toBe(['2026-02-01', '2026-03-01']);
 });
