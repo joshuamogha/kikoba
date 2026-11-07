@@ -8,11 +8,10 @@ use App\Models\ShareManagement\MemberShareTransaction;
 use App\Models\UserManagement\Group;
 use App\Models\UserManagement\User;
 use App\Support\BillingPeriod;
+use App\Support\ImportDate;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
-use Throwable;
 
 class ImportMemberShares
 {
@@ -79,7 +78,7 @@ class ImportMemberShares
      */
     private function record(Group $group, User $user, array $row, ?int $maximumShares, float $price): array
     {
-        $phone = User::normalizePhone($row['phone_number']);
+        $phone = $this->cleanPhone($row['phone_number']);
         $member = $phone === '' ? null : $group->groupMembers()->where('phone_number', $phone)->first();
 
         if ($member === null) {
@@ -104,10 +103,10 @@ class ImportMemberShares
         }
 
         $shares = intdiv($amountInCents, $priceInCents);
-        $date = $this->parseDate($row['transaction_date']);
+        $date = ImportDate::parse($row['transaction_date']);
 
-        if ($date === null || $date->isFuture()) {
-            return ['The transaction date is required, must be a past or current date and written as YYYY-MM-DD.', $member->name];
+        if ($date === null || $date->toDateString() > today()->toDateString()) {
+            return ['The transaction date is required and must be a past or current date, e.g. 15/12/2025 08:32:47 or 2025-12-15.', $member->name];
         }
 
         $period = BillingPeriod::start(null, $date);
@@ -138,20 +137,5 @@ class ImportMemberShares
         $transaction->withoutTimestamps(fn () => $transaction->update(['transaction_number' => sprintf('SHR-%d-%06d', $date->year, $transaction->id)]));
 
         return [null, $member->name];
-    }
-
-    private function parseDate(string $value): ?Carbon
-    {
-        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) !== 1) {
-            return null;
-        }
-
-        try {
-            $date = Carbon::createFromFormat('!Y-m-d', $value);
-
-            return $date !== false && $date->format('Y-m-d') === $value ? $date : null;
-        } catch (Throwable) {
-            return null;
-        }
     }
 }

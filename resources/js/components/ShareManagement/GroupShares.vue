@@ -112,7 +112,7 @@ export default {
             importColumns: [
                 { name: "phone_number", required: true, description: "The member's phone number: it identifies the member. Spaces and dashes are ignored.", example: "0712345678" },
                 { name: "amount", required: true, description: "The total amount the member paid. It must be a multiple of the share price: the number of shares is the amount divided by the price.", example: "20000" },
-                { name: "transaction_date", required: true, description: "The date the member paid, as YYYY-MM-DD. Its month is the period the shares belong to.", example: "2026-02-05" },
+                { name: "transaction_date", required: true, description: "The date the member paid, e.g. 15/12/2025 08:32:47 or 2025-12-15 (the time is optional). Its month is the period the shares belong to.", example: "2026-02-05" },
                 { name: "reference", required: false, description: "A note or receipt number.", example: "Opening balance" },
             ],
             saving: false,

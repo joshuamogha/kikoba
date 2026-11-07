@@ -65,6 +65,7 @@ use App\Models\UserManagement\GroupMemberRole;
 use App\Models\UserManagement\GroupRole;
 use App\Models\UserManagement\GroupType;
 use App\Models\UserManagement\User;
+use Illuminate\Http\UploadedFile;
 
 /**
  * Create a group exactly as a user would: the given user becomes its Chairperson.
@@ -216,4 +217,49 @@ function buyShares($test, $member, string $period, int $shares, string $paidOn =
 function calendarFor($test, ?User $as = null, array $query = [])
 {
     return $test->actingAs($as ?? $test->chair)->getJson(route('contribution-calendar.index', ['group_id' => $test->group->id, ...$query]));
+}
+
+/**
+ * Build a minimal .xlsx file in memory. Text cells use shared strings, numbers stay numbers, and a
+ * ['date' => 45996.35] cell is a number shown with a date format, as Excel stores dates.
+ *
+ * @param  array<int, array<int, string|int|float|array{date: float}>>  $rows
+ */
+function makeXlsx(array $rows, string $name = 'import.xlsx'): UploadedFile
+{
+    $strings = [];
+    $sheetRows = '';
+
+    foreach ($rows as $rowIndex => $cells) {
+        $xml = '';
+
+        foreach (array_values($cells) as $columnIndex => $cell) {
+            $reference = chr(65 + $columnIndex).($rowIndex + 1);
+
+            if (is_array($cell)) {
+                $xml .= "<c r=\"{$reference}\" s=\"1\"><v>{$cell['date']}</v></c>";
+            } elseif (is_int($cell) || is_float($cell)) {
+                $xml .= "<c r=\"{$reference}\"><v>{$cell}</v></c>";
+            } else {
+                $strings[] = $cell;
+                $xml .= "<c r=\"{$reference}\" t=\"s\"><v>".(count($strings) - 1).'</v></c>';
+            }
+        }
+
+        $sheetRows .= '<row r="'.($rowIndex + 1)."\">{$xml}</row>";
+    }
+
+    $path = tempnam(sys_get_temp_dir(), 'xlsx');
+    $zip = new ZipArchive;
+    $zip->open($path, ZipArchive::OVERWRITE);
+    $zip->addFromString('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="xml" ContentType="application/xml"/><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/></Types>');
+    $zip->addFromString('_rels/.rels', '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
+    $zip->addFromString('xl/workbook.xml', '<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets></workbook>');
+    $zip->addFromString('xl/_rels/workbook.xml.rels', '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>');
+    $zip->addFromString('xl/styles.xml', '<?xml version="1.0" encoding="UTF-8"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cellXfs count="2"><xf numFmtId="0"/><xf numFmtId="22"/></cellXfs></styleSheet>');
+    $zip->addFromString('xl/sharedStrings.xml', '<?xml version="1.0" encoding="UTF-8"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'.implode('', array_map(fn ($text) => '<si><t>'.htmlspecialchars($text).'</t></si>', $strings)).'</sst>');
+    $zip->addFromString('xl/worksheets/sheet1.xml', '<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>'.$sheetRows.'</sheetData></worksheet>');
+    $zip->close();
+
+    return UploadedFile::fake()->createWithContent($name, (string) file_get_contents($path));
 }

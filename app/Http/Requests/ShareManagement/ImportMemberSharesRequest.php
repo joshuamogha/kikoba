@@ -22,7 +22,7 @@ class ImportMemberSharesRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'file' => ['required', 'file', 'mimes:csv,txt', 'max:2048'],
+            'file' => ['required', 'file', 'mimes:csv,txt,xlsx', 'max:2048'],
         ];
     }
 }

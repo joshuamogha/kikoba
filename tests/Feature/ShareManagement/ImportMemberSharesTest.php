@@ -76,7 +76,7 @@ test('phone numbers are matched after cleaning and other groups\' members are ne
 test('bad rows are skipped with the line number while good rows still import', function () {
     $phone = $this->plainMember->phone_number;
     $future = now()->addDay()->toDateString();
-    $response = importShares($this, "phone_number,amount,transaction_date\n{$phone},0,2026-01-10\n{$phone},abc,2026-01-10\n{$phone},12000,2026-01-10\n{$phone},2500,2026-01-10\n{$phone},10000,\n{$phone},10000,15/01/2026\n{$phone},10000,{$future}\n{$phone},10000,2026-02-30\n{$phone},10000,2026-02-01\n")
+    $response = importShares($this, "phone_number,amount,transaction_date\n{$phone},0,2026-01-10\n{$phone},abc,2026-01-10\n{$phone},12000,2026-01-10\n{$phone},2500,2026-01-10\n{$phone},10000,\n{$phone},10000,01/15/2026\n{$phone},10000,{$future}\n{$phone},10000,2026-02-30\n{$phone},10000,2026-02-01\n")
         ->assertOk()->assertJsonPath('data.imported', 1);
 
     $skipped = collect($response->json('data.skipped'));

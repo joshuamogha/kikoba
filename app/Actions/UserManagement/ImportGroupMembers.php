@@ -64,7 +64,7 @@ class ImportGroupMembers
      */
     private function addMember(Group $group, User $assigner, string $name, string $rawPhone, int $membershipTypeId): ?string
     {
-        $phone = User::normalizePhone($rawPhone);
+        $phone = $this->cleanPhone($rawPhone);
 
         if ($name === '') {
             return 'The name is empty.';

@@ -24,9 +24,9 @@
                 role="button" tabindex="0" @click="$refs.fileInput.click()" @keydown.enter="$refs.fileInput.click()"
                 @dragover.prevent="dragging = true" @dragleave.prevent="dragging = false" @drop.prevent="onDrop">
                 <i class="bi bi-cloud-arrow-up fs-1 text-muted"></i>
-                <div v-if="!file">Drag and drop the CSV file here, or <span class="text-primary">click to choose</span></div>
+                <div v-if="!file">Drag and drop the CSV or Excel (.xlsx) file here, or <span class="text-primary">click to choose</span></div>
                 <div v-else><strong>{{ file.name }}</strong> <small class="text-muted">({{ Math.ceil(file.size / 1024) }} KB)</small></div>
-                <input ref="fileInput" type="file" accept=".csv,text/csv,text/plain" class="d-none" @change="onPick" />
+                <input ref="fileInput" type="file" accept=".csv,.xlsx,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="d-none" @change="onPick" />
             </div>
             <div v-if="error" class="text-danger small mt-2">{{ error }}</div>
 
@@ -80,9 +80,9 @@ export default {
             this.result = null;
             this.error = "";
 
-            if (file && !/\.(csv|txt)$/i.test(file.name)) {
+            if (file && !/\.(csv|txt|xlsx)$/i.test(file.name)) {
                 this.file = null;
-                this.error = "Choose a .csv file. Download the template to start from.";
+                this.error = "Choose a .csv or .xlsx file. Download the template to start from.";
 
                 return;
             }

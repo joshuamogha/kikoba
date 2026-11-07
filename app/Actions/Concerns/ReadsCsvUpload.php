@@ -2,14 +2,16 @@
 
 namespace App\Actions\Concerns;
 
+use App\Models\UserManagement\User;
+use App\Support\XlsxReader;
 use Illuminate\Http\UploadedFile;
 use InvalidArgumentException;
 
 trait ReadsCsvUpload
 {
     /**
-     * Read the rows below the heading row of an uploaded CSV file, keyed by their line number in the file. Each row is an array
-     * keyed by the known column names; unknown columns are ignored and missing optional columns are empty strings.
+     * Read the rows below the heading row of an uploaded CSV or Excel (.xlsx) file, keyed by their line number in the file. Each row is
+     * an array keyed by the known column names; unknown columns are ignored and missing optional columns are empty strings.
      *
      * @param  array<int, string>  $required  headings that must be present
      * @param  array<int, string>  $optional  headings that may be present
@@ -19,35 +21,27 @@ trait ReadsCsvUpload
      */
     protected function readCsv(UploadedFile $file, array $required, array $optional = [], int $maxRows = 500): array
     {
-        $handle = fopen($file->getRealPath(), 'r');
-
-        if ($handle === false) {
-            throw new InvalidArgumentException('The file could not be read.');
-        }
-
-        $header = fgetcsv($handle, escape: '\\');
-        $headings = array_map(fn (?string $column) => strtolower(trim(preg_replace('/^\xEF\xBB\xBF/', '', (string) $column) ?? '')), $header ?: []);
+        $lines = $this->isExcelFile($file) ? XlsxReader::rows($file->getRealPath()) : $this->csvLines($file);
         $known = [...$required, ...$optional];
 
-        if (array_diff($required, $headings) !== []) {
-            fclose($handle);
+        $headingLine = array_key_first($lines);
+        $headings = array_map(
+            fn (?string $column) => strtolower(trim(preg_replace('/^\xEF\xBB\xBF/', '', (string) $column) ?? '')),
+            $headingLine === null ? [] : $lines[$headingLine],
+        );
 
+        if (array_diff($required, $headings) !== []) {
             throw new InvalidArgumentException('The first row must be the headings: '.implode(', ', $required).'. Download the template to start from.');
         }
 
         $rows = [];
-        $line = 1;
 
-        while (($cells = fgetcsv($handle, escape: '\\')) !== false) {
-            $line++;
-
+        foreach (array_slice($lines, 1, preserve_keys: true) as $number => $cells) {
             if (count(array_filter($cells, fn ($cell) => trim((string) $cell) !== '')) === 0) {
                 continue;
             }
 
             if (count($rows) >= $maxRows) {
-                fclose($handle);
-
                 throw new InvalidArgumentException("A file can have at most {$maxRows} rows. Split it and upload again.");
             }
 
@@ -59,15 +53,54 @@ trait ReadsCsvUpload
                 }
             }
 
-            $rows[$line] = $row;
+            $rows[$number] = $row;
         }
-
-        fclose($handle);
 
         if ($rows === []) {
             throw new InvalidArgumentException('The file has no rows below the headings.');
         }
 
         return $rows;
+    }
+
+    /**
+     * A phone number cleaned for lookups. Excel drops the leading zero of a number typed as 0712345678, so a bare
+     * 9-digit local number is given its zero back.
+     */
+    protected function cleanPhone(string $raw): string
+    {
+        $phone = User::normalizePhone($raw);
+
+        return preg_match('/^[67][0-9]{8}$/', $phone) === 1 ? '0'.$phone : $phone;
+    }
+
+    private function isExcelFile(UploadedFile $file): bool
+    {
+        return strtolower($file->getClientOriginalExtension()) === 'xlsx';
+    }
+
+    /**
+     * The lines of a CSV file keyed by their line number.
+     *
+     * @return array<int, array<int, string|null>>
+     */
+    private function csvLines(UploadedFile $file): array
+    {
+        $handle = fopen($file->getRealPath(), 'r');
+
+        if ($handle === false) {
+            throw new InvalidArgumentException('The file could not be read.');
+        }
+
+        $lines = [];
+        $line = 0;
+
+        while (($cells = fgetcsv($handle, escape: '\\')) !== false) {
+            $lines[++$line] = $cells;
+        }
+
+        fclose($handle);
+
+        return $lines;
     }
 }
