@@ -87,20 +87,41 @@ test('bad rows are skipped with the line number while good rows still import', f
         ->and($this->group->memberShareTransactions()->count())->toBe(1);
 });
 
-test('suspended members are skipped and the group maximum applies to each month, not the whole year', function () {
-    $this->group->groupSetting()->update(['maximum_shares' => 5]);
+test('suspended members are skipped', function () {
     $this->friendMember->update(['membership_status' => 'suspended']);
+
+    $response = importShares($this, "phone_number,amount,transaction_date\n{$this->friendMember->phone_number},5000,2026-01-10\n")
+        ->assertOk()->assertJsonPath('data.imported', 0);
+
+    expect($response->json('data.skipped.0.reason'))->toContain('not active');
+});
+
+test('shares above the monthly maximum are carried to the next months and keep the created time', function () {
+    $this->group->groupSetting()->update(['maximum_shares' => 5]);
     $phone = $this->plainMember->phone_number;
 
-    $response = importShares($this, "phone_number,amount,transaction_date\n{$phone},15000,2026-01-10\n{$phone},15000,2026-01-20\n{$phone},15000,2026-02-10\n{$phone},25000,2026-03-10\n{$phone},5000,2026-03-11\n{$this->friendMember->phone_number},5000,2026-01-10\n")
-        ->assertOk()->assertJsonPath('data.imported', 3);
+    $response = importShares($this, "phone_number,amount,transaction_date,reference\n{$phone},15000,10/01/2026 09:15:00,A\n{$phone},40000,2026-01-20,B\n{$phone},20000,2026-03-11,C\n")
+        ->assertOk()->assertJsonPath('data.imported', 3)->assertJsonPath('data.carried', 1)->assertJsonPath('data.skipped', []);
 
-    $reasons = collect($response->json('data.skipped'))->pluck('reason', 'row');
+    expect($response->json('message'))->toContain('1 carried over to the next month');
 
-    expect($reasons[3])->toContain('at most 5 shares in January 2026')
-        ->and($reasons[6])->toContain('at most 5 shares in March 2026')
-        ->and($reasons[7])->toContain('not active')
-        ->and($this->group->memberShareTransactions()->sum('number_of_shares'))->toBe(3 + 3 + 5);
+    $perMonth = $this->group->memberShareTransactions()->get()
+        ->groupBy(fn ($record) => $record->period_start->format('Y-m'))->map(fn ($records) => $records->sum('number_of_shares'));
+
+    expect($perMonth->all())->toBe(['2026-01' => 5, '2026-02' => 5, '2026-03' => 5])
+        ->and($this->group->memberShareTransactions()->where('reference', 'B')->count())->toBe(3)
+        ->and($this->group->memberShareTransactions()->where('reference', 'B')->get()->every(fn ($record) => $record->created_at->toDateString() === '2026-01-20'))->toBeTrue()
+        ->and($this->group->memberShareTransactions()->where('reference', 'A')->sole()->created_at->format('Y-m-d H:i:s'))->toBe('2026-01-10 09:15:00');
+});
+
+test('a row that cannot fit in the next twelve months is skipped and records nothing', function () {
+    $this->group->groupSetting()->update(['maximum_shares' => 1]);
+
+    $response = importShares($this, "phone_number,amount,transaction_date\n{$this->plainMember->phone_number},65000,2026-01-10\n")
+        ->assertOk()->assertJsonPath('data.imported', 0);
+
+    expect($response->json('data.skipped.0.reason'))->toContain('no room')
+        ->and($this->group->memberShareTransactions()->count())->toBe(0);
 });
 
 test('nothing is imported until the group has a share price', function () {

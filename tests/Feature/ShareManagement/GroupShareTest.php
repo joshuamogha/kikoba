@@ -83,17 +83,59 @@ test('shares cannot be recorded until the group has a share price', function () 
         ->assertUnprocessable()->assertJsonValidationErrors('number_of_shares');
 });
 
-test('a member\'s shares for the month must stay within the group minimum and maximum', function () {
-    $this->group->groupSetting()->update(['minimum_shares' => 2, 'maximum_shares' => 10]);
+test('the group minimum applies to the first month and shares above the monthly maximum move to the next month', function () {
+    $this->group->groupSetting()->update(['minimum_shares' => 2, 'maximum_shares' => 5]);
     $url = route('groups.shares.store', $this->group);
+    $month = now()->startOfMonth();
 
-    $this->actingAs($this->chair)->postJson($url, sharePayload($this->plainMember, ['number_of_shares' => 1]))->assertUnprocessable();
-    $this->actingAs($this->chair)->postJson($url, sharePayload($this->plainMember, ['number_of_shares' => 8]))->assertCreated();
-    $this->actingAs($this->chair)->postJson($url, sharePayload($this->plainMember, ['number_of_shares' => 3]))
+    $this->actingAs($this->chair)->postJson($url, sharePayload($this->plainMember, ['number_of_shares' => 1]))
         ->assertUnprocessable()->assertJsonValidationErrors('number_of_shares');
-    $this->actingAs($this->chair)->postJson($url, sharePayload($this->plainMember, ['number_of_shares' => 2]))->assertCreated();
 
-    $this->actingAs($this->chair)->postJson($url, sharePayload($this->plainMember, ['number_of_shares' => 9, 'period' => now()->subMonth()->format('Y-m')]))->assertCreated();
+    $this->actingAs($this->chair)->postJson($url, sharePayload($this->plainMember, ['number_of_shares' => 3, 'reference' => 'Slip 7']))->assertCreated();
+
+    $response = $this->actingAs($this->chair)->postJson($url, sharePayload($this->plainMember, ['number_of_shares' => 13]))
+        ->assertCreated()->assertJsonCount(4, 'records');
+
+    $perMonth = $this->group->memberShareTransactions()->where('group_member_id', $this->plainMember->id)->orderBy('period_start')->get()
+        ->groupBy(fn ($record) => $record->period_start->format('Y-m'))->map(fn ($records) => $records->sum('number_of_shares'));
+
+    expect($response->json('message'))->toContain('13 shares recorded: 2 in '.$month->format('F Y').', 5 in '.$month->copy()->addMonth()->format('F Y').', 5 in '.$month->copy()->addMonths(2)->format('F Y').', 1 in '.$month->copy()->addMonths(3)->format('F Y'))
+        ->and($perMonth->all())->toBe([
+            $month->format('Y-m') => 5,
+            $month->copy()->addMonth()->format('Y-m') => 5,
+            $month->copy()->addMonths(2)->format('Y-m') => 5,
+            $month->copy()->addMonths(3)->format('Y-m') => 1,
+        ])
+        ->and($this->group->memberShareTransactions()->where('number_of_shares', 5)->count())->toBe(2);
+
+    $spilled = $this->group->memberShareTransactions()->whereDate('period_start', $month->copy()->addMonth()->toDateString())->sole();
+
+    expect($spilled->transaction_date->toDateString())->toBe(now()->toDateString())
+        ->and((float) $spilled->total_amount)->toBe(5 * (float) $this->group->groupSetting->share_price)
+        ->and($spilled->status)->toBe('approved')
+        ->and($spilled->transaction_number)->toBe(sprintf('SHR-%d-%06d', now()->year, $spilled->id));
+});
+
+test('without a maximum a purchase stays a single record', function () {
+    $this->group->groupSetting()->update(['maximum_shares' => null]);
+
+    $this->actingAs($this->chair)->postJson(route('groups.shares.store', $this->group), sharePayload($this->plainMember, ['number_of_shares' => 50]))
+        ->assertCreated()->assertJsonCount(1, 'records');
+
+    expect($this->group->memberShareTransactions()->count())->toBe(1);
+});
+
+test('shares that do not fit in the next twelve months are rejected and nothing is recorded', function () {
+    $this->group->groupSetting()->update(['minimum_shares' => 0, 'maximum_shares' => 1]);
+
+    $this->actingAs($this->chair)->postJson(route('groups.shares.store', $this->group), sharePayload($this->plainMember, ['number_of_shares' => 13]))
+        ->assertUnprocessable()->assertJsonValidationErrors('number_of_shares');
+
+    expect($this->group->memberShareTransactions()->count())->toBe(0);
+
+    $this->actingAs($this->chair)->postJson(route('groups.shares.store', $this->group), sharePayload($this->plainMember, ['number_of_shares' => 12]))->assertCreated();
+
+    expect($this->group->memberShareTransactions()->count())->toBe(12);
 });
 
 test('leaders get the member list and default price', function () {

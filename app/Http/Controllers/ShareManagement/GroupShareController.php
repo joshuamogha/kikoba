@@ -2,19 +2,17 @@
 
 namespace App\Http\Controllers\ShareManagement;
 
-use App\Actions\PaymentManagement\ResolveFinancialCycle;
 use App\Actions\ShareManagement\ImportMemberShares;
+use App\Actions\ShareManagement\RecordSharePurchase;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ShareManagement\ImportMemberSharesRequest;
 use App\Http\Requests\ShareManagement\StoreGroupShareRequest;
 use App\Http\Resources\ShareManagement\MemberShareTransactionResource;
-use App\Models\ShareManagement\MemberShareTransaction;
 use App\Models\UserManagement\Group;
 use App\Support\BillingPeriod;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 use InvalidArgumentException;
@@ -59,43 +57,40 @@ class GroupShareController extends Controller
     }
 
     /**
-     * Record shares bought by a member, in the open cycle covering the date.
+     * Record shares bought by a member. When the member's monthly maximum is reached, the rest moves to the next month(s).
      */
-    public function store(StoreGroupShareRequest $request, Group $group, ResolveFinancialCycle $resolveCycle): JsonResponse
+    public function store(StoreGroupShareRequest $request, Group $group, RecordSharePurchase $recordPurchase): JsonResponse
     {
         $data = $request->validated();
-        $price = (float) $group->ensureGroupSetting()->share_price;
+        $date = Carbon::parse($data['transaction_date']);
 
-        $transaction = DB::transaction(function () use ($request, $group, $data, $price, $resolveCycle): MemberShareTransaction {
-            $date = Carbon::parse($data['transaction_date']);
-            $period = BillingPeriod::start($data['period'] ?? null, $date);
+        try {
+            $records = $recordPurchase->handle(
+                $group,
+                $group->groupMembers()->findOrFail($data['group_member_id']),
+                $request->user(),
+                (int) $data['number_of_shares'],
+                $date,
+                BillingPeriod::start($data['period'] ?? null, $date),
+                $data['reference'] ?? null,
+                (float) $group->ensureGroupSetting()->share_price,
+                $group->ensureGroupSetting()->maximum_shares,
+            );
+        } catch (InvalidArgumentException $exception) {
+            return response()->json(['message' => $exception->getMessage(), 'errors' => ['number_of_shares' => [$exception->getMessage()]]], 422);
+        }
 
-            $transaction = $group->memberShareTransactions()->create([
-                'financial_cycle_id' => $resolveCycle->handle($group, $period, $request->user()->id)->id,
-                'group_member_id' => $data['group_member_id'],
-                'transaction_number' => 'PENDING-'.uniqid(),
-                'transaction_type' => 'purchase',
-                'number_of_shares' => $data['number_of_shares'],
-                'price_per_share' => $price,
-                'total_amount' => round($data['number_of_shares'] * $price, 2),
-                'transaction_date' => $date->toDateString(),
-                'period_start' => $period->toDateString(),
-                'status' => 'approved',
-                'reference' => $data['reference'] ?? null,
-                'approved_by' => $request->user()->id,
-            ]);
-
-            $transaction->update(['transaction_number' => sprintf('SHR-%d-%06d', $date->year, $transaction->id)]);
-
-            return $transaction;
-        });
-
-        $transaction->load(['group:id,name', 'financialCycle:id,name', 'groupMember']);
+        foreach ($records as $record) {
+            $record->load(['group:id,name', 'financialCycle:id,name', 'groupMember']);
+        }
 
         return response()->json([
             'success' => true,
-            'message' => 'Shares recorded successfully.',
-            'data' => (new MemberShareTransactionResource($transaction))->resolve(),
+            'message' => count($records) > 1
+                ? $data['number_of_shares'].' shares recorded: '.RecordSharePurchase::describe($records).'.'
+                : 'Shares recorded successfully.',
+            'data' => (new MemberShareTransactionResource($records[0]))->resolve(),
+            'records' => collect($records)->map(fn ($record) => (new MemberShareTransactionResource($record))->resolve())->all(),
         ], 201);
     }
 
@@ -128,7 +123,9 @@ class GroupShareController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => $result['imported'].' share '.str('record')->plural($result['imported']).' imported'.($result['skipped'] === [] ? '.' : ', '.count($result['skipped']).' skipped.'),
+            'message' => $result['imported'].' share '.str('record')->plural($result['imported']).' imported'
+                .($result['carried'] > 0 ? ', '.$result['carried'].' carried over to the next month' : '')
+                .($result['skipped'] === [] ? '.' : ', '.count($result['skipped']).' skipped.'),
             'data' => $result,
         ]);
     }

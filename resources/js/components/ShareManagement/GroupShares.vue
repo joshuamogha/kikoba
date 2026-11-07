@@ -62,7 +62,7 @@
         </div>
 
         <ImportModal v-if="importModal" title="Import member shares" :template-url="`${base}/import/template`" :upload-url="`${base}/import`" :group-id="groupId"
-            :columns="importColumns" note="The member is identified by phone number and must already be an active member of this group. Each row is recorded as an approved purchase: shares = amount ÷ the group's current share price, in the month of the transaction date. A member cannot buy more than the group's maximum shares in any one month. Up to 500 rows per file."
+            :columns="importColumns" note="The member is identified by phone number and must already be an active member of this group. Each row is recorded as an approved purchase: shares = amount ÷ the group's current share price, in the month of the transaction date. A member can buy at most the group's maximum shares in a month; the rest of a row moves to the next month. Up to 500 rows per file."
             @close="importModal = false" @imported="load(1)" />
 
         <MediumModal v-if="formModal" @close="closeModal">
@@ -76,7 +76,7 @@
                     :error="errors.number_of_shares?.[0]" />
                 <p class="small text-muted mb-2">
                     Price per share: {{ money(defaultPrice) }} (set in group settings).
-                    Each member buys {{ minShares }}{{ maxShares === null ? " or more" : ` to ${maxShares}` }} shares per month.
+                    Each member buys {{ minShares }}{{ maxShares === null ? " or more" : ` to ${maxShares}` }} shares per month. Shares above the maximum move to the next month.
                 </p>
                 <DatePicker v-model="form.transaction_date" label="Date paid"
                     :error="errors.transaction_date?.[0]" />

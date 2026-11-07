@@ -41,7 +41,7 @@ class StoreGroupShareRequest extends FormRequest
     }
 
     /**
-     * The group's share price must be set, and the member's shares for the month must stay within the group's share limits.
+     * The group's share price must be set, and the member's shares for the first month must reach the group's minimum. Shares above the monthly maximum move to later months.
      *
      * @return array<int, \Closure(Validator): void>
      */
@@ -61,18 +61,20 @@ class StoreGroupShareRequest extends FormRequest
             }
 
             $period = BillingPeriod::start($this->input('period'), Carbon::parse($this->input('transaction_date')));
+            $member = $this->route('group')->groupMembers()->find($this->integer('group_member_id'));
+            $shares = $this->integer('number_of_shares');
 
             $held = (int) MemberShareTransaction::query()
-                ->where('group_member_id', $this->integer('group_member_id'))
+                ->where('group_member_id', $member->id)
                 ->where('transaction_type', 'purchase')
                 ->whereDate('period_start', $period->toDateString())
                 ->sum('number_of_shares');
-            $total = $held + $this->integer('number_of_shares');
 
-            if ($total < $setting->minimum_shares) {
+            $room = $setting->maximum_shares === null ? $shares : max($setting->maximum_shares - $held, 0);
+            $inFirstMonth = $held + min($shares, $room);
+
+            if ($room > 0 && $inFirstMonth < $setting->minimum_shares) {
                 $validator->errors()->add('number_of_shares', "A member must buy at least {$setting->minimum_shares} shares in {$period->format('F Y')} (currently {$held}).");
-            } elseif ($setting->maximum_shares !== null && $total > $setting->maximum_shares) {
-                $validator->errors()->add('number_of_shares', "A member can buy at most {$setting->maximum_shares} shares in {$period->format('F Y')} (currently {$held}).");
             }
         }];
     }

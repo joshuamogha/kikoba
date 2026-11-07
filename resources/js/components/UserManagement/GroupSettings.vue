@@ -42,7 +42,7 @@
                             </div>
                             <div class="col-md-6">
                                 <BaseInput v-model="form.maximum_shares" type="number" min="0"
-                                    label="Maximum shares per month (optional)" :disabled="!canManage"
+                                    label="Maximum shares per month (extra go to the next month)" :disabled="!canManage"
                                     :error="errors.maximum_shares?.[0]" />
                             </div>
                         </div>
