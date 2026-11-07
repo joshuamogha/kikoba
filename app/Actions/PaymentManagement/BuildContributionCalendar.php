@@ -105,7 +105,6 @@ class BuildContributionCalendar
 
         ContributionItem::query()
             ->with('contribution:id,group_member_id,contribution_date')
-            ->whereDoesntHave('groupFund.fundType', fn ($type) => $type->where('code', 'SHR'))
             ->whereHas('contribution', fn ($contribution) => $contribution
                 ->where('group_id', $group->id)
                 ->where('financial_cycle_id', $cycle->id)

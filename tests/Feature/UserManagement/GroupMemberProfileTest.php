@@ -65,7 +65,7 @@ test('leaders see a member\'s profile page and summary figures', function () {
         ->assertOk()
         ->assertJsonPath('data.name', $this->plain->name)
         ->assertJsonPath('data.group.id', $this->group->id)
-        ->assertJsonPath('data.summary.contributions_total', 30000)
+        ->assertJsonPath('data.summary.contributions_total', 50000)
         ->assertJsonPath('data.summary.shares_count', 4)
         ->assertJsonPath('data.summary.shares_amount', 20000)
         ->assertJsonPath('data.summary.loans_count', 1)
@@ -76,7 +76,7 @@ test('leaders see a member\'s profile page and summary figures', function () {
 test('every record tab lists the member\'s own rows', function () {
     seedMemberHistory($this);
 
-    $counts = ['contributions' => 1, 'shares' => 1, 'loans' => 1, 'repayments' => 1, 'fines' => 1, 'transactions' => 2, 'guarantees' => 0];
+    $counts = ['contributions' => 2, 'shares' => 1, 'loans' => 1, 'repayments' => 1, 'fines' => 1, 'transactions' => 3, 'guarantees' => 0];
 
     foreach ($counts as $type => $count) {
         $this->actingAs($this->chair)->getJson(route('members.records', [$this->plainMember, $type]))

@@ -110,7 +110,7 @@ class RecordSharePurchase
     public function recordContribution(MemberShareTransaction $purchase, User $approver, ?Carbon $createdAt = null): ?Contribution
     {
         $group = $purchase->group;
-        $fund = $this->sharesFund($group);
+        $fund = $this->sharesFund($group, $approver->id);
         $methodId = $group->paymentMethods()->where('code', 'CASH')->value('id') ?? $group->paymentMethods()->orderBy('id')->value('id');
 
         if ($purchase->contribution_id !== null || $fund === null || $methodId === null) {
@@ -155,15 +155,35 @@ class RecordSharePurchase
     }
 
     /**
-     * The group's active fund for share capital (fund type code SHR).
+     * The group's active fund for share capital (fund type code SHR). Groups that were set up without one get a "Hisa (Shares)" fund
+     * the first time shares are recorded, as long as they have the Shares fund type and no fund already uses the code SHR.
      */
-    public function sharesFund(Group $group): ?GroupFund
+    public function sharesFund(Group $group, ?int $userId = null): ?GroupFund
     {
-        return $group->groupFunds()
+        $fund = $group->groupFunds()
             ->where('status', 'active')
             ->whereHas('fundType', fn ($type) => $type->where('code', 'SHR'))
             ->orderBy('id')
             ->first();
+
+        $typeId = $group->fundTypes()->where('code', 'SHR')->value('id');
+
+        if ($fund !== null || $typeId === null || $group->groupFunds()->where('code', 'SHR')->exists()) {
+            return $fund;
+        }
+
+        return $group->groupFunds()->create([
+            'fund_type_id' => $typeId,
+            'name' => 'Hisa (Shares)',
+            'code' => 'SHR',
+            'description' => 'Share capital bought by members.',
+            'minimum_contribution' => 0,
+            'is_mandatory' => false,
+            'is_distributable' => true,
+            'is_loanable' => false,
+            'status' => 'active',
+            'created_by' => $userId ?? $group->created_by,
+        ]);
     }
 
     /**

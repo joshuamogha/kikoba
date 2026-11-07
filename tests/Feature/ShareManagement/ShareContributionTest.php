@@ -77,17 +77,29 @@ test('the add-shares form records the contribution too', function () {
         ->and(MemberShareTransaction::query()->sole()->contribution_id)->not->toBeNull();
 });
 
-test('share money shows on the shares calendar only, not twice', function () {
+test('share money shows month by month on both the shares and the contributions calendar', function () {
     addSharesFund($this);
     buyShares($this, $this->member, '2026-02', 3, '2026-02-10');
+    $cycleId = MemberShareTransaction::query()->value('financial_cycle_id');
 
-    calendarFor($this, query: ['type' => 'shares', 'financial_cycle_id' => MemberShareTransaction::query()->value('financial_cycle_id')])
-        ->assertOk()->assertJsonPath('data.grand_total', 15000);
-    calendarFor($this, query: ['type' => 'contributions', 'financial_cycle_id' => MemberShareTransaction::query()->value('financial_cycle_id')])
-        ->assertOk()->assertJsonPath('data.grand_total', 0);
+    foreach (['shares', 'contributions'] as $type) {
+        calendarFor($this, query: ['type' => $type, 'financial_cycle_id' => $cycleId])
+            ->assertOk()->assertJsonPath('data.grand_total', 15000)->assertJsonPath('data.totals.2026-02', 15000);
+    }
 });
 
-test('without a Shares fund the share records are still saved', function () {
+test('a group without a Shares fund gets one the first time shares are recorded', function () {
+    expect($this->group->groupFunds()->count())->toBe(0);
+
+    importShareRows($this, "{$this->member->phone_number},5000,2026-01-10,\n");
+
+    expect($this->group->groupFunds()->sole()->code)->toBe('SHR')
+        ->and($this->group->contributions()->sole()->contributionItems()->sole()->groupFund->code)->toBe('SHR');
+});
+
+test('without the Shares fund type the share records are still saved', function () {
+    $this->group->fundTypes()->where('code', 'SHR')->delete();
+
     importShareRows($this, "{$this->member->phone_number},5000,2026-01-10,\n");
 
     expect(MemberShareTransaction::query()->count())->toBe(1)
@@ -95,8 +107,11 @@ test('without a Shares fund the share records are still saved', function () {
 });
 
 test('the command adds contributions for share purchases that have none, once', function () {
+    $this->group->fundTypes()->where('code', 'SHR')->update(['code' => 'XXX']);
     importShareRows($this, "{$this->member->phone_number},10000,2026-01-10,old\n");
-    addSharesFund($this);
+    $this->group->fundTypes()->where('code', 'XXX')->update(['code' => 'SHR']);
+
+    expect($this->group->contributions()->count())->toBe(0);
 
     $this->artisan('shares:link-contributions')->assertSuccessful();
     $this->artisan('shares:link-contributions')->assertSuccessful();

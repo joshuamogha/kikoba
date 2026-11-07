@@ -17,9 +17,14 @@
                     </select>
                 </div>
                 <div class="col-md-3 text-md-end">
-                    <button v-if="canManage" @click="openAddModal" class="btn btn-primary">
-                        <i class="bi bi-person-plus"></i> Add member
-                    </button>
+                    <div v-if="canManage" class="btn-group">
+                        <button @click="openAddModal" class="btn btn-primary">
+                            <i class="bi bi-person-plus"></i> Add member
+                        </button>
+                        <button @click="importModal = true" class="btn btn-outline-primary">
+                            <i class="bi bi-upload"></i> Import
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -36,7 +41,7 @@
                             <th>Roles</th>
                             <th>Status</th>
                             <th>Joined</th>
-                            <th v-if="canManage">Action</th>
+                            <th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -64,8 +69,12 @@
                                 <div v-if="member.exit_reason" class="small text-muted">{{ member.exit_reason }}</div>
                             </td>
                             <td>{{ member.joined_at }}</td>
-                            <td v-if="canManage">
+                            <td>
                                 <div class="btn-group btn-group-sm">
+                                    <a v-if="canManage || member.is_self" :href="`/members/${member.id}`" class="btn btn-info" title="View member">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <template v-if="canManage">
                                     <button @click="openEditModal(member)" class="btn btn-secondary" title="Edit member">
                                         <i class="bi bi-pencil"></i>
                                     </button>
@@ -86,14 +95,18 @@
                                         <i class="bi bi-play-circle"></i>
                                     </button>
                                     <button v-if="member.membership_status !== 'exited'" @click="openExitModal(member)"
-                                        class="btn btn-danger" title="Remove from group">
+                                        class="btn btn-warning" title="Remove from group (keeps their records)">
                                         <i class="bi bi-box-arrow-right"></i>
                                     </button>
+                                    <button @click="deleting = member" class="btn btn-danger" title="Delete">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                    </template>
                                 </div>
                             </td>
                         </tr>
                         <tr v-if="!members.length">
-                            <td :colspan="canManage ? 8 : 7" class="text-center text-muted py-4">No members found.</td>
+                            <td :colspan="8" class="text-center text-muted py-4">No members found.</td>
                         </tr>
                     </tbody>
                 </table>
@@ -203,6 +216,18 @@
             </template>
         </MediumModal>
 
+        <ConfirmModal v-if="deleting" @close="deleting = null">
+            <template v-slot:header><h4>Alert</h4></template>
+            <template v-slot:body>
+                Delete {{ deleting.name }} ({{ deleting.member_number }})? Only members with no contributions, loans, shares or fines can be deleted. Otherwise deactivate them.
+            </template>
+            <template v-slot:footer><button @click="destroyMember" class="btn btn-danger">Delete</button></template>
+        </ConfirmModal>
+
+        <ImportModal v-if="importModal" title="Import members" template-url="/members/import/template" upload-url="/members/import" :group-id="groupId"
+            :columns="importColumns" note="Keep the first row as the headings. Up to 500 members per file. People already in the group are skipped. New members get the group's Ordinary Member type and the Member role."
+            @close="importModal = false" @imported="getMembers(1)" />
+
         <MemberRolesModal v-if="rolesMember" :group-id="groupId" :member="rolesMember"
             :assignable-roles="assignableRoles" @close="rolesMember = null" @changed="getMembers(meta.current_page)" />
     </div>
@@ -239,6 +264,12 @@ export default {
             exiting: { id: null, name: "" },
             exitReason: "",
             rolesMember: null,
+            deleting: null,
+            importModal: false,
+            importColumns: [
+                { name: "name", required: true, description: "The member's full name.", example: "Asha Juma" },
+                { name: "phone_number", required: true, description: "A phone number of 9 to 15 digits, with or without a leading +. Spaces and dashes are ignored. A number that belongs to a registered user links to their account.", example: "0712345678 or +255754123456" },
+            ],
         };
     },
 
@@ -390,6 +421,24 @@ export default {
 
         confirmExit() {
             this.setStatus(this.exiting, "exited", this.exitReason);
+        },
+
+        destroyMember() {
+            const member = this.deleting;
+
+            this.deleting = null;
+
+            axios
+                .delete(`${this.base}/${member.id}`)
+                .then((response) => {
+                    this.$toast.success(response.data.message);
+                    this.getMembers(this.meta.current_page);
+                })
+                .catch((error) => {
+                    const data = error.response?.data;
+
+                    this.$toast.error(data?.errors?.member?.[0] ?? data?.error ?? data?.message ?? "Something went wrong. Please try again.");
+                });
         },
 
         done(message) {
