@@ -15,6 +15,7 @@ use App\Http\Controllers\LoanManagement\LoanInstallmentController;
 use App\Http\Controllers\LoanManagement\LoanProductController;
 use App\Http\Controllers\LoanManagement\LoanProductRangeController;
 use App\Http\Controllers\LoanManagement\LoanRepaymentController;
+use App\Http\Controllers\LoanManagement\LoanRepaymentImportController;
 use App\Http\Controllers\PaymentManagement\ContributionCalendarController;
 use App\Http\Controllers\PaymentManagement\ContributionController;
 use App\Http\Controllers\PaymentManagement\ContributionImportController;
@@ -133,6 +134,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('loans', LoanController::class)->only(['index', 'store', 'show']);
     Route::get('loan-installments', [LoanInstallmentController::class, 'index'])->name('loan-installments.index');
 
+    Route::get('loan-repayments/import/template', [LoanRepaymentImportController::class, 'template'])->name('loan-repayments.template');
+    Route::post('loan-repayments/import', [LoanRepaymentImportController::class, 'import'])->name('loan-repayments.import');
     Route::resource('loan-repayments', LoanRepaymentController::class)->only(['index', 'store']);
     Route::patch('loan-repayments/{loan_repayment}/approve', [LoanRepaymentController::class, 'approve'])->name('loan-repayments.approve');
 

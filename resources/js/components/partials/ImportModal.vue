@@ -51,7 +51,7 @@
                     {{ result.imported }} imported, {{ result.skipped.length }} skipped.
                 </div>
                 <table v-if="result.skipped.length" class="table table-sm table-striped">
-                    <thead><tr><th>Row</th><th>Name</th><th>Phone</th><th>Why it was skipped</th></tr></thead>
+                    <thead><tr><th>Row</th><th>Name</th><th>{{ keyLabel }}</th><th>Why it was skipped</th></tr></thead>
                     <tbody>
                         <tr v-for="row in result.skipped" :key="row.row"><td>{{ row.row }}</td><td>{{ row.name }}</td><td>{{ row.phone }}</td><td>{{ row.reason }}</td></tr>
                     </tbody>
@@ -73,6 +73,8 @@ export default {
         groupId: { type: [String, Number], required: true },
         columns: { type: Array, required: true },
         note: { type: String, default: "" },
+        /** What the third column of the skipped-rows table shows (the phone number for most imports). */
+        keyLabel: { type: String, default: "Phone" },
         /** Extra choices sent with the upload and the template link: { name, label, type: "select" | "checkbox", options, required, default }. */
         fields: { type: Array, default: () => [] },
     },

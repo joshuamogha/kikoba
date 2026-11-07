@@ -4,6 +4,10 @@
             <PaymentToolbar title="Loan repayments" :groups="groups" :group-id="groupId" :statuses="['pending', 'approved']"
                 :can-manage="canManage" add-label="Repayment" @group="onGroup" @search="onSearch" @status="onStatus" @add="openAdd" />
         </div>
+        <div v-if="canManage" class="card-body py-2 border-bottom d-flex justify-content-between align-items-center">
+            <span class="small text-muted">Past repayments on paper or in a spreadsheet? Import them against the loan numbers.</span>
+            <button @click="importModal = true" class="btn btn-outline-primary btn-sm"><i class="bi bi-upload"></i> Import</button>
+        </div>
         <div class="card-body p-0">
             <table class="table table-striped mb-0 align-middle">
                 <thead>
@@ -46,6 +50,11 @@
             </template>
             <template v-slot:footer><button @click="save" class="btn btn-primary" :disabled="saving">Save</button></template>
         </LargeModal>
+
+        <ImportModal v-if="importModal" title="Import loan repayments" template-url="/loan-repayments/import/template" upload-url="/loan-repayments/import" :group-id="groupId"
+            :fields="importFields" :columns="importColumns" key-label="Loan number"
+            note="The template lists the group's open loans with their loan number, member and balance: fill in the amount, date and receipt for the repayments you have (the member and balance columns are only for reference). Rows are applied in date order, each as an approved repayment that pays the oldest installments first (penalty, then interest, then principal). A repayment cannot be more than the loan still owes, cannot be dated before the loan was disbursed, and a receipt that is already recorded is skipped, so the same file can be uploaded again safely. Import repayments before the daily overdue check runs on newly imported loans, or penalties will be added for installments that were really paid. Up to 500 rows per file."
+            @close="importModal = false" @imported="load(1)" />
     </div>
 </template>
 
@@ -56,7 +65,22 @@ export default {
     mixins: [paymentPage],
 
     data() {
-        return { endpoint: "/loan-repayments" };
+        return {
+            endpoint: "/loan-repayments",
+            importModal: false,
+            importColumns: [
+                { name: "loan_number", required: true, description: "The loan number from the Loans page, e.g. LN-2026-000012. It identifies the loan and its member.", example: "LN-2026-000012" },
+                { name: "amount", required: true, description: "The amount the member paid. It cannot be more than the loan's outstanding balance.", example: "50000" },
+                { name: "payment_date", required: true, description: "The date paid, e.g. 15/12/2025 08:32:47 or 2025-12-15 (the time is optional). Not before the loan was disbursed and not in the future.", example: "2026-02-05" },
+                { name: "receipt", required: false, description: "The receipt number. It is unique: a receipt already recorded is skipped. Without one, the same loan, date and amount counts as a duplicate.", example: "RCT-0001" },
+            ],
+        };
+    },
+
+    computed: {
+        importFields() {
+            return [{ name: "payment_method_id", label: "Payment method (default: Cash)", type: "select", placeholder: "Cash / the group's first method", options: this.options.payment_methods ?? [] }];
+        },
     },
 
     methods: {
