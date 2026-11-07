@@ -19,9 +19,14 @@ beforeEach(function () {
     $this->thirdMember = addMemberTo($this->group, User::factory()->create());
     $this->outsider = User::factory()->create();
     $this->product = createLoanProductFor($this->group, ['code' => 'EMG', 'name' => 'Emergency']);
+    $this->product->loanProductRanges()->createMany([
+        ['minimum_amount' => 0, 'maximum_amount' => 500000, 'duration_months' => 3],
+        ['minimum_amount' => 500001, 'maximum_amount' => 1000000, 'duration_months' => 6],
+    ]);
+    $this->product->syncDurationsFromRanges();
 });
 
-const LOAN_HEADER = 'phone_number,loan_product,amount,application_date,disbursement_date,purpose,duration_months';
+const LOAN_HEADER = 'phone_number,loan_product,amount,application_date,disbursement_date,purpose';
 
 function importLoans($test, string $rows, bool $guarantors = false, ?User $as = null, string $header = LOAN_HEADER)
 {
@@ -40,14 +45,14 @@ test('the template has guarantor columns only when asked for, and only leaders a
     $with = $this->actingAs($this->chair)->get($url(['include_guarantors' => 1]));
 
     expect($headings($without))->toBe(explode(',', LOAN_HEADER))
-        ->and($headings($with))->toHaveCount(13)->and($headings($with)[7])->toBe('guarantor1_phone')
+        ->and($headings($with))->toHaveCount(12)->and($headings($with)[6])->toBe('guarantor1_phone')
         ->and($without->streamedContent())->toContain('EMG');
 
     $this->actingAs($this->plain)->get($url([]))->assertForbidden();
 });
 
 test('a row goes through every step: approved application, disbursed loan and installment schedule', function () {
-    importLoans($this, "{$this->plainMember->phone_number},EMG,600000,05/01/2026,10/01/2026 09:00:00,School fees,6\n")
+    importLoans($this, "{$this->plainMember->phone_number},EMG,600000,05/01/2026,10/01/2026 09:00:00,School fees\n")
         ->assertOk()->assertJsonPath('data.imported', 1)->assertJsonPath('data.skipped', []);
 
     $application = LoanApplication::query()->sole();
@@ -70,7 +75,7 @@ test('a row goes through every step: approved application, disbursed loan and in
 });
 
 test('guarantors are recorded as accepted when included and ignored when not', function () {
-    $row = "{$this->plainMember->phone_number},EMG,600000,2026-01-05,2026-01-10,Fees,6,{$this->friendMember->phone_number},300000,{$this->thirdMember->phone_number},200000,,\n";
+    $row = "{$this->plainMember->phone_number},EMG,600000,2026-01-05,2026-01-10,Fees,{$this->friendMember->phone_number},300000,{$this->thirdMember->phone_number},200000,,\n";
     $header = LOAN_HEADER.',guarantor1_phone,guarantor1_amount,guarantor2_phone,guarantor2_amount,guarantor3_phone,guarantor3_amount';
 
     importLoans($this, $row, guarantors: true, header: $header)->assertOk()->assertJsonPath('data.imported', 1);
@@ -82,32 +87,48 @@ test('guarantors are recorded as accepted when included and ignored when not', f
         ->and($guarantors->pluck('group_member_id')->all())->toBe([$this->friendMember->id, $this->thirdMember->id])
         ->and((float) $guarantors[0]->guaranteed_amount)->toBe(300000.0);
 
-    $other = "{$this->friendMember->phone_number},EMG,400000,2026-01-05,2026-01-10,Fees,6,{$this->plainMember->phone_number},100000,,,,\n";
+    $other = "{$this->friendMember->phone_number},EMG,400000,2026-01-05,2026-01-10,Fees,{$this->plainMember->phone_number},100000,,,,\n";
 
     importLoans($this, $other, guarantors: false, header: $header)->assertOk()->assertJsonPath('data.imported', 1);
 
     expect(LoanApplication::query()->where('group_member_id', $this->friendMember->id)->sole()->loanGuarantors()->count())->toBe(0);
 });
 
-test('the term comes from the amount ranges, or from the file when the product has none', function () {
+test('the term is calculated from the loan ranges and no duration is needed', function () {
     $ranged = createLoanProductFor($this->group, ['code' => 'RNG', 'name' => 'Ranged', 'repayment_mode' => 'lump_sum']);
-    $ranged->loanProductRanges()->create(['minimum_amount' => 0, 'maximum_amount' => 500000, 'duration_months' => 2]);
-    $ranged->loanProductRanges()->create(['minimum_amount' => 500001, 'maximum_amount' => 1000000, 'duration_months' => 4]);
+    $ranged->loanProductRanges()->create(['minimum_amount' => 0, 'maximum_amount' => 1000000, 'duration_months' => 4]);
     $ranged->syncDurationsFromRanges();
 
-    $response = importLoans($this, "{$this->plainMember->phone_number},RNG,800000,2026-01-05,2026-01-10,Fees,\n{$this->friendMember->phone_number},RNG,2000000,2026-01-05,2026-01-10,Fees,3\n{$this->thirdMember->phone_number},EMG,100000,2026-01-05,2026-01-10,Fees,\n")
-        ->assertOk()->assertJsonPath('data.imported', 1);
+    importLoans($this, "{$this->plainMember->phone_number},RNG,800000,2026-01-05,2026-01-10,Fees\n{$this->friendMember->phone_number},EMG,300000,2026-01-05,2026-01-10,Fees\n{$this->thirdMember->phone_number},EMG,900000,2026-01-05,2026-01-10,Fees\n")
+        ->assertOk()->assertJsonPath('data.imported', 3);
+
+    $loans = Loan::query()->with('loanApplication')->get()->keyBy('group_member_id');
+
+    expect($loans[$this->plainMember->id]->loanApplication->duration_months)->toBe(4)
+        ->and($loans[$this->plainMember->id]->loanInstallments()->count())->toBe(1)
+        ->and($loans[$this->plainMember->id]->maturity_date->toDateString())->toBe('2026-05-10')
+        ->and($loans[$this->friendMember->id]->loanApplication->duration_months)->toBe(3)
+        ->and($loans[$this->friendMember->id]->loanInstallments()->count())->toBe(3)
+        ->and($loans[$this->thirdMember->id]->loanApplication->duration_months)->toBe(6);
+});
+
+test('an amount outside every range, or a product without ranges, is skipped with the reason', function () {
+    createLoanProductFor($this->group, ['code' => 'FREE', 'name' => 'No ranges']);
+
+    $response = importLoans($this, "{$this->plainMember->phone_number},EMG,2000000,2026-01-05,2026-01-10,Fees\n{$this->friendMember->phone_number},FREE,100000,2026-01-05,2026-01-10,Fees\n")
+        ->assertOk()->assertJsonPath('data.imported', 0);
 
     $skipped = collect($response->json('data.skipped'))->keyBy('row');
 
-    expect($skipped[3]['reason'])->toContain('No loan range')->and($skipped[4]['reason'])->toContain('duration');
+    expect($skipped[2]['reason'])->toContain('No loan range covers')
+        ->and($skipped[3]['reason'])->toContain('no loan ranges')->toContain('Loan Ranges page')
+        ->and(Loan::query()->count())->toBe(0);
+});
 
-    $loan = Loan::query()->sole();
+test('an older file that still has a duration column imports and the column is ignored', function () {
+    importLoans($this, "{$this->plainMember->phone_number},EMG,600000,2026-01-05,2026-01-10,Fees,12\n", header: LOAN_HEADER.',duration_months')->assertOk()->assertJsonPath('data.imported', 1);
 
-    expect($loan->group_member_id)->toBe($this->plainMember->id)
-        ->and($loan->loanApplication->duration_months)->toBe(4)
-        ->and($loan->loanInstallments()->count())->toBe(1)
-        ->and($loan->maturity_date->toDateString())->toBe('2026-05-10');
+    expect(Loan::query()->sole()->loanApplication->duration_months)->toBe(6);
 });
 
 test('bad rows are skipped with the reason while good rows import', function () {
@@ -115,12 +136,12 @@ test('bad rows are skipped with the reason while good rows import', function () 
     $future = now()->addDay()->toDateString();
     $this->friendMember->update(['membership_status' => 'suspended']);
 
-    $response = importLoans($this, "0000,EMG,1000,2026-01-05,2026-01-10,Fees,6\n{$this->friendMember->phone_number},EMG,1000,2026-01-05,2026-01-10,Fees,6\n{$phone},NOPE,1000,2026-01-05,2026-01-10,Fees,6\n{$phone},EMG,abc,2026-01-05,2026-01-10,Fees,6\n{$phone},EMG,1000,2026-01-12,2026-01-10,Fees,6\n{$phone},EMG,1000,2026-01-05,{$future},Fees,6\n{$phone},EMG,1000,2026-01-05,2026-02-30,Fees,6\n{$phone},EMG,1000,2026-01-05,2026-01-10,,6\n{$phone},EMG,1000,2026-01-05,2026-01-10,Fees,0\n{$phone},EMG,1000,2026-01-05,2026-01-10,Fees,6\n")
+    $response = importLoans($this, "0000,EMG,1000,2026-01-05,2026-01-10,Fees\n{$this->friendMember->phone_number},EMG,1000,2026-01-05,2026-01-10,Fees\n{$phone},NOPE,1000,2026-01-05,2026-01-10,Fees\n{$phone},EMG,abc,2026-01-05,2026-01-10,Fees\n{$phone},EMG,1000,2026-01-12,2026-01-10,Fees\n{$phone},EMG,1000,2026-01-05,{$future},Fees\n{$phone},EMG,1000,2026-01-05,2026-02-30,Fees\n{$phone},EMG,1000,2026-01-05,2026-01-10,\n{$phone},EMG,1000,2026-01-05,2026-01-10,Fees\n")
         ->assertOk()->assertJsonPath('data.imported', 1);
 
     $skipped = collect($response->json('data.skipped'))->keyBy('row');
 
-    expect($skipped->keys()->all())->toBe([2, 3, 4, 5, 6, 7, 8, 9, 10])
+    expect($skipped->keys()->all())->toBe([2, 3, 4, 5, 6, 7, 8, 9])
         ->and($skipped[3]['reason'])->toContain('not active')
         ->and($skipped[4]['reason'])->toContain('code')
         ->and($skipped[9]['reason'])->toContain('purpose')
@@ -130,7 +151,7 @@ test('bad rows are skipped with the reason while good rows import', function () 
 test('guarantor mistakes skip the row without creating anything', function () {
     $phone = $this->plainMember->phone_number;
     $header = LOAN_HEADER.',guarantor1_phone,guarantor1_amount,guarantor2_phone,guarantor2_amount';
-    $base = "{$phone},EMG,100000,2026-01-05,2026-01-10,Fees,6";
+    $base = "{$phone},EMG,100000,2026-01-05,2026-01-10,Fees";
 
     $response = importLoans($this, "{$base},{$this->friendMember->phone_number},,,\n{$base},{$phone},50000,,\n{$base},0000,50000,,\n{$base},{$this->friendMember->phone_number},50000,{$this->friendMember->phone_number},20000\n{$base},{$this->friendMember->phone_number},abc,,\n", guarantors: true, header: $header)
         ->assertOk()->assertJsonPath('data.imported', 0);
@@ -145,19 +166,19 @@ test('guarantor mistakes skip the row without creating anything', function () {
 });
 
 test('uploading the same file again records nothing new', function () {
-    $rows = "{$this->plainMember->phone_number},EMG,600000,2026-01-05,2026-01-10,Fees,6\n{$this->friendMember->phone_number},EMG,300000,2026-01-05,2026-01-12,Fees,3\n";
+    $rows = "{$this->plainMember->phone_number},EMG,600000,2026-01-05,2026-01-10,Fees\n{$this->friendMember->phone_number},EMG,300000,2026-01-05,2026-01-12,Fees\n";
 
     importLoans($this, $rows)->assertJsonPath('data.imported', 2);
     importLoans($this, $rows)->assertJsonPath('data.imported', 0)->assertJsonCount(2, 'data.skipped');
-    importLoans($this, "{$this->plainMember->phone_number},EMG,600000,2026-01-05,2026-02-10,Fees,6\n")->assertJsonPath('data.imported', 1);
+    importLoans($this, "{$this->plainMember->phone_number},EMG,600000,2026-01-05,2026-02-10,Fees\n")->assertJsonPath('data.imported', 1);
 
     expect(Loan::query()->count())->toBe(3)->and(LoanApplication::query()->count())->toBe(3);
 });
 
 test('an Excel file works and the file needs the right headings', function () {
     $file = makeXlsx([
-        ['phone_number', 'loan_product', 'amount', 'application_date', 'disbursement_date', 'purpose', 'duration_months'],
-        [(int) ltrim($this->plainMember->phone_number, '0'), 'emg', 600000, '05/01/2026', '10/01/2026 09:00:00', 'Fees', 6],
+        ['phone_number', 'loan_product', 'amount', 'application_date', 'disbursement_date', 'purpose'],
+        [(int) ltrim($this->plainMember->phone_number, '0'), 'emg', 600000, '05/01/2026', '10/01/2026 09:00:00', 'Fees'],
     ], 'loans.xlsx');
 
     $this->actingAs($this->chair)->postJson(route('loan-applications.import'), ['group_id' => $this->group->id, 'file' => $file])->assertOk()->assertJsonPath('data.imported', 1);
@@ -165,7 +186,7 @@ test('an Excel file works and the file needs the right headings', function () {
 });
 
 test('only leaders and the treasurer can import loans', function () {
-    $row = "{$this->plainMember->phone_number},EMG,600000,2026-01-05,2026-01-10,Fees,6\n";
+    $row = "{$this->plainMember->phone_number},EMG,600000,2026-01-05,2026-01-10,Fees\n";
 
     importLoans($this, $row, as: $this->plain)->assertForbidden();
     importLoans($this, $row, as: $this->outsider)->assertForbidden();

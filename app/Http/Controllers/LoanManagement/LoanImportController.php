@@ -29,10 +29,10 @@ class LoanImportController extends Controller
         $code = $group->loanProducts()->where('status', 'active')->orderBy('id')->value('code') ?? 'PRODUCT-CODE';
 
         return response()->streamDownload(function () use ($withGuarantors, $code): void {
-            $headings = [...ImportLoans::REQUIRED, ...ImportLoans::OPTIONAL, ...($withGuarantors ? ImportLoans::guarantorColumns() : [])];
+            $headings = [...ImportLoans::REQUIRED, ...($withGuarantors ? ImportLoans::guarantorColumns() : [])];
             $rows = [
-                ['0712345678', $code, '500000', '2026-01-05', '2026-01-10', 'School fees', '6', ...($withGuarantors ? ['0754123456', '300000', '0765000111', '200000', '', ''] : [])],
-                ['+255754123456', $code, '200000', '15/02/2026', '15/02/2026', 'Farm inputs', '', ...($withGuarantors ? ['', '', '', '', '', ''] : [])],
+                ['0712345678', $code, '500000', '2026-01-05', '2026-01-10', 'School fees', ...($withGuarantors ? ['0754123456', '300000', '0765000111', '200000', '', ''] : [])],
+                ['+255754123456', $code, '200000', '15/02/2026', '15/02/2026', 'Farm inputs', ...($withGuarantors ? ['', '', '', '', '', ''] : [])],
             ];
 
             $out = fopen('php://output', 'w');

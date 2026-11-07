@@ -24,11 +24,6 @@ class ImportLoans
      */
     public const REQUIRED = ['phone_number', 'loan_product', 'amount', 'application_date', 'disbursement_date', 'purpose'];
 
-    /**
-     * @var array<int, string>
-     */
-    public const OPTIONAL = ['duration_months'];
-
     public function __construct(private RecordExistingLoan $recordLoan) {}
 
     /**
@@ -52,7 +47,7 @@ class ImportLoans
      */
     public function handle(Group $group, User $user, UploadedFile $file, bool $includeGuarantors): array
     {
-        $rows = $this->readCsv($file, self::REQUIRED, [...self::OPTIONAL, ...self::guarantorColumns()], self::MAX_ROWS);
+        $rows = $this->readCsv($file, self::REQUIRED, self::guarantorColumns(), self::MAX_ROWS);
 
         return DB::transaction(function () use ($group, $user, $rows, $includeGuarantors): array {
             $imported = 0;
@@ -110,10 +105,14 @@ class ImportLoans
             return ['The application and disbursement dates are required, must be written like 15/12/2025 or 2025-12-15, and the application date cannot be after the disbursement date or in the future.', $member->name];
         }
 
-        $months = $this->term($product, $amount, $row['duration_months']);
+        $months = $product->hasRanges() ? $product->termFor($amount) : null;
 
-        if (is_string($months)) {
-            return [$months, $member->name];
+        if (! $product->hasRanges()) {
+            return ["The loan product {$product->code} has no loan ranges, so its term cannot be worked out. Add its ranges on the Loan Ranges page first.", $member->name];
+        }
+
+        if ($months === null) {
+            return ['No loan range covers this amount.', $member->name];
         }
 
         if ($row['purpose'] === '') {
@@ -137,29 +136,11 @@ class ImportLoans
         $this->recordLoan->handle($group, $product, $user, [
             'group_member_id' => $member->id,
             'requested_amount' => $amount,
-            'duration_months' => $months,
             'purpose' => mb_substr($row['purpose'], 0, 1000),
             'guarantors' => $guarantors,
         ], $applicationDate, $disbursementDate);
 
         return [null, $member->name];
-    }
-
-    /**
-     * The loan term in months: decided by the amount ranges when the product has them, otherwise the duration in the file.
-     * Returns the reason as text when no valid term can be found.
-     */
-    private function term(mixed $product, float $amount, string $duration): int|string
-    {
-        if ($product->hasRanges()) {
-            return $product->termFor($amount) ?? 'No loan range covers this amount.';
-        }
-
-        if (preg_match('/^[1-9][0-9]{0,2}$/', $duration) !== 1 || (int) $duration > 600) {
-            return 'The duration (1 to 600 months) is required for this loan product.';
-        }
-
-        return (int) $duration;
     }
 
     /**

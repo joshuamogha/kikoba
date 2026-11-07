@@ -116,7 +116,7 @@
 
         <ImportModal v-if="importModal" title="Import loans" template-url="/loan-applications/import/template" upload-url="/loan-applications/import" :group-id="groupId"
             :fields="importFields" :columns="importColumns"
-            note="Every row goes through all the steps at once: application, guarantors (if included), approval and disbursement with the installment schedule. The member is identified by phone number and the product by its code. Eligibility checks for new applications (savings limit, guarantors needed, one loan at a time) are skipped, as when recording an existing loan. A loan with the same member, product, disbursement date and amount is skipped, so the same file can be uploaded again safely. Past repayments are added on the Loan Repayments page. Up to 500 rows per file."
+            note="Every row goes through all the steps at once: application, guarantors (if included), approval and disbursement with the installment schedule. The member is identified by phone number and the product by its code. The term is worked out from the product's loan ranges for the amount (set them on the Loan Ranges page). Eligibility checks for new applications (savings limit, guarantors needed, one loan at a time) are skipped, as when recording an existing loan. A loan with the same member, product, disbursement date and amount is skipped, so the same file can be uploaded again safely. Past repayments are added on the Loan Repayments page. Up to 500 rows per file."
             @close="importModal = false" @imported="load(1)" />
     </div>
 </template>
@@ -144,7 +144,6 @@ export default {
                 { name: "application_date", required: true, description: "When the member applied, e.g. 05/01/2026 or 2026-01-05. It cannot be after the disbursement date.", example: "2026-01-05" },
                 { name: "disbursement_date", required: true, description: "When the loan was given, in the past or today. The installment schedule starts from this date.", example: "2026-01-10" },
                 { name: "purpose", required: true, description: "What the loan is for.", example: "School fees" },
-                { name: "duration_months", required: false, description: "The term in months (1 to 600). Leave empty when the product's amount ranges decide the term.", example: "6" },
                 { name: "guarantorN_phone / guarantorN_amount", required: false, description: "Only with Include guarantors: up to 3 pairs (guarantor1_phone, guarantor1_amount, ...). A pair needs both cells; guarantors are recorded as accepted.", example: "0754123456 / 300000" },
             ],
         };
