@@ -12,7 +12,7 @@ class BuildContributionCalendar
 {
     public const TYPES = ['contributions', 'shares'];
 
-    private const MAX_MONTHS = 24;
+    private const MAX_MONTHS = 36;
 
     /**
      * A members × months grid of what each member paid for each month of a financial cycle.

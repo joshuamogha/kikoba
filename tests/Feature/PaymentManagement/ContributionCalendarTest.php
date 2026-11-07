@@ -139,3 +139,19 @@ test('the member profile exposes the same grid for one member', function () {
     $this->actingAs($this->chair)->get(route('members.show', $this->plainMember))->assertOk();
     calendarFor($this, query: ['group_member_id' => $this->plainMember->id])->assertJsonCount(1, 'data.rows')->assertJsonPath('data.rows.0.cells.2026-02.status', 'paid');
 });
+
+test('the cycle list puts open cycles first, then drafts, then closed ones, and opens on the open cycle covering today', function () {
+    $closed = $this->group->financialCycles()->create([
+        'contribution_frequency_id' => $this->group->contributionFrequencies()->value('id'),
+        'name' => 'Closed 2027', 'cycle_number' => 2, 'start_date' => '2027-01-01', 'end_date' => '2027-12-31', 'status' => 'closed',
+    ]);
+    $draft = $this->group->financialCycles()->create([
+        'contribution_frequency_id' => $this->group->contributionFrequencies()->value('id'),
+        'name' => 'Draft 2025', 'cycle_number' => 3, 'start_date' => '2025-01-01', 'end_date' => '2025-12-31', 'status' => 'draft',
+    ]);
+
+    $response = calendarFor($this)->assertOk();
+
+    expect(collect($response->json('cycles'))->pluck('value')->all())->toBe([$this->cycle->id, $draft->id, $closed->id])
+        ->and($response->json('data.cycle.id'))->toBe($this->cycle->id);
+});

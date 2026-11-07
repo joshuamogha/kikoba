@@ -40,7 +40,11 @@ class ContributionCalendarController extends Controller
             abort_unless($group->groupMembers()->whereKey($requestedMemberId)->exists(), 404);
         }
 
-        $cycles = $group->financialCycles()->orderByDesc('start_date')->orderByDesc('id')->get();
+        $cycles = $group->financialCycles()
+            ->orderByRaw("case status when 'open' then 0 when 'draft' then 1 else 2 end")
+            ->orderByDesc('start_date')
+            ->orderByDesc('id')
+            ->get();
         $cycle = $request->filled('financial_cycle_id')
             ? $group->financialCycles()->findOrFail($request->integer('financial_cycle_id'))
             : $this->defaultCycle($cycles);
@@ -58,12 +62,14 @@ class ContributionCalendarController extends Controller
     }
 
     /**
-     * The cycle covering today if there is one, otherwise the most recent.
+     * The open cycle covering today if there is one, then any cycle covering today, otherwise the first in the list (open cycles first).
      *
      * @param  Collection<int, FinancialCycle>  $cycles
      */
     private function defaultCycle($cycles): ?FinancialCycle
     {
-        return $cycles->first(fn (FinancialCycle $cycle) => $cycle->start_date->lte(today()) && $cycle->end_date->gte(today())) ?? $cycles->first();
+        $coversToday = $cycles->filter(fn (FinancialCycle $cycle) => $cycle->start_date->lte(today()) && $cycle->end_date->gte(today()));
+
+        return $coversToday->firstWhere('status', 'open') ?? $coversToday->first() ?? $cycles->first();
     }
 }

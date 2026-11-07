@@ -66,3 +66,44 @@ test('a cycle moves from draft to open to closed and a closed cycle is locked', 
     $this->actingAs($this->chair)->putJson(route('financial-cycles.update', $id), cyclePayload($this->group))->assertUnprocessable();
     $this->actingAs($this->plain)->patchJson(route('financial-cycles.open', $id))->assertForbidden();
 });
+
+test('a cycle cannot overlap another cycle of the group, but adjacent cycles are fine and an update ignores itself', function () {
+    $this->actingAs($this->chair)->postJson(route('financial-cycles.store'), cyclePayload($this->group, ['name' => 'FY 2025', 'start_date' => '2025-12-01', 'end_date' => '2026-11-30']))->assertCreated();
+
+    $this->actingAs($this->chair)->postJson(route('financial-cycles.store'), cyclePayload($this->group, ['name' => 'Clash', 'start_date' => '2026-11-15', 'end_date' => '2027-10-31']))
+        ->assertUnprocessable()->assertJsonValidationErrors('start_date');
+
+    $next = $this->actingAs($this->chair)->postJson(route('financial-cycles.store'), cyclePayload($this->group, ['name' => 'FY 2026', 'start_date' => '2026-12-01', 'end_date' => '2027-11-30']))
+        ->assertCreated()->json('data.id');
+
+    $this->actingAs($this->chair)->putJson(route('financial-cycles.update', $next), cyclePayload($this->group, ['name' => 'FY 2026 renamed', 'start_date' => '2026-12-01', 'end_date' => '2027-11-30']))->assertOk();
+    $this->actingAs($this->chair)->putJson(route('financial-cycles.update', $next), cyclePayload($this->group, ['start_date' => '2026-11-30', 'end_date' => '2027-11-30']))->assertUnprocessable();
+});
+
+test('a closed cycle can be reopened', function () {
+    $id = $this->actingAs($this->chair)->postJson(route('financial-cycles.store'), cyclePayload($this->group))->json('data.id');
+
+    $this->actingAs($this->chair)->patchJson(route('financial-cycles.open', $id))->assertOk();
+    $this->actingAs($this->chair)->patchJson(route('financial-cycles.open', $id))->assertUnprocessable();
+    $this->actingAs($this->chair)->patchJson(route('financial-cycles.close', $id))->assertOk();
+
+    $this->actingAs($this->chair)->patchJson(route('financial-cycles.open', $id))->assertOk()->assertJsonPath('data.status', 'open')->assertJsonPath('message', 'Cycle reopened.');
+
+    $cycle = $this->group->financialCycles()->findOrFail($id);
+
+    expect($cycle->closed_at)->toBeNull()->and($cycle->closed_by)->toBeNull();
+});
+
+test('an empty cycle can be deleted but one with records cannot, and only managers delete', function () {
+    $empty = $this->actingAs($this->chair)->postJson(route('financial-cycles.store'), cyclePayload($this->group))->json('data.id');
+    $used = $this->actingAs($this->chair)->postJson(route('financial-cycles.store'), cyclePayload($this->group, ['name' => 'Used', 'start_date' => '2024-01-01', 'end_date' => '2024-12-31']))->json('data.id');
+    $this->group->groupSetting()->update(['share_price' => 5000]);
+    buyShares($this, $this->plainMember, '2024-02', 1, '2024-02-10');
+
+    $this->actingAs($this->plain)->deleteJson(route('financial-cycles.destroy', $empty))->assertForbidden();
+    $this->actingAs($this->chair)->deleteJson(route('financial-cycles.destroy', $used))->assertUnprocessable();
+    $this->actingAs($this->chair)->deleteJson(route('financial-cycles.destroy', $empty))->assertOk();
+
+    $this->assertDatabaseMissing('financial_cycles', ['id' => $empty]);
+    $this->assertDatabaseHas('financial_cycles', ['id' => $used]);
+});

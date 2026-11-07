@@ -88,7 +88,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('payments/{page}', [PaymentPageController::class, 'show'])->whereIn('page', array_keys(PaymentPageController::PAGES))->name('payment-pages.show');
 
-    Route::resource('financial-cycles', FinancialCycleController::class)->only(['index', 'store', 'update']);
+    Route::resource('financial-cycles', FinancialCycleController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::patch('financial-cycles/{financial_cycle}/open', [FinancialCycleController::class, 'open'])->name('financial-cycles.open');
     Route::patch('financial-cycles/{financial_cycle}/close', [FinancialCycleController::class, 'close'])->name('financial-cycles.close');
 

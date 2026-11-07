@@ -21,8 +21,10 @@
                         <td v-if="canManage">
                             <div class="btn-group btn-group-sm">
                                 <button v-if="item.status === 'draft'" @click="change(item, 'open')" class="btn btn-success" title="Open"><i class="bi bi-play-circle"></i></button>
+                                <button v-if="item.status === 'closed'" @click="change(item, 'open')" class="btn btn-success" title="Reopen"><i class="bi bi-unlock"></i></button>
                                 <button v-if="item.status === 'open'" @click="change(item, 'close')" class="btn btn-warning" title="Close"><i class="bi bi-lock"></i></button>
                                 <button v-if="item.status !== 'closed'" @click="openForm({ ...item })" class="btn btn-secondary" title="Edit"><i class="bi bi-pencil"></i></button>
+                                <button @click="deleting = item" class="btn btn-danger" title="Delete"><i class="bi bi-trash"></i></button>
                             </div>
                         </td>
                     </tr>
@@ -31,6 +33,12 @@
             </table>
         </div>
         <div v-if="meta.total" class="card-footer"><Pagination :meta="meta" @change="load" /></div>
+
+        <ConfirmModal v-if="deleting" @close="deleting = null">
+            <template v-slot:header><h4>Alert</h4></template>
+            <template v-slot:body>Delete "{{ deleting.name }}"? Only a cycle with no contributions, shares, loans or other records can be deleted. Otherwise close it.</template>
+            <template v-slot:footer><button @click="destroy" class="btn btn-danger">Delete</button></template>
+        </ConfirmModal>
 
         <LargeModal v-if="formModal" @close="closeModal">
             <template v-slot:header><h4>{{ form.id ? "Edit cycle" : "Add cycle" }}</h4></template>
@@ -56,12 +64,19 @@ export default {
     mixins: [paymentPage],
 
     data() {
-        return { endpoint: "/financial-cycles" };
+        return { endpoint: "/financial-cycles", deleting: null };
     },
 
     methods: {
         change(item, action) {
             this.act(axios.patch(`${this.endpoint}/${item.id}/${action}`));
+        },
+
+        destroy() {
+            const cycle = this.deleting;
+
+            this.deleting = null;
+            this.act(axios.delete(`${this.endpoint}/${cycle.id}`, { data: { group_id: this.groupId } }));
         },
 
         save() {

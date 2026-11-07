@@ -75,13 +75,44 @@ class FinancialCycleController extends Controller
     {
         Gate::authorize('managePayments', $financialCycle->group);
 
-        if ($financialCycle->status !== 'draft') {
-            return $this->failure('Only a draft cycle can be opened.');
+        if (! in_array($financialCycle->status, ['draft', 'closed'], true)) {
+            return $this->failure('Only a draft or closed cycle can be opened.');
         }
 
-        $financialCycle->update(['status' => 'open', 'opened_by' => $request->user()->id]);
+        $reopened = $financialCycle->status === 'closed';
 
-        return $this->saved($financialCycle, 'Cycle opened.');
+        $financialCycle->update([
+            'status' => 'open',
+            'opened_by' => $request->user()->id,
+            ...($reopened ? ['closed_by' => null, 'closed_at' => null] : []),
+        ]);
+
+        return $this->saved($financialCycle, $reopened ? 'Cycle reopened.' : 'Cycle opened.');
+    }
+
+    /**
+     * Delete a cycle that nothing refers to. A cycle with records is closed instead.
+     */
+    public function destroy(Request $request, FinancialCycle $financialCycle): JsonResponse
+    {
+        Gate::authorize('managePayments', $financialCycle->group);
+
+        $records = $financialCycle->contributions()->count()
+            + $financialCycle->loanApplications()->count()
+            + $financialCycle->loans()->count()
+            + $financialCycle->memberFines()->count()
+            + $financialCycle->groupIncomes()->count()
+            + $financialCycle->groupExpenses()->count()
+            + $financialCycle->memberShareTransactions()->count()
+            + $financialCycle->shareOut()->count();
+
+        if ($records > 0) {
+            return $this->failure("This cycle has {$records} record(s) (contributions, shares, loans, ...), so it cannot be deleted. Close it instead.");
+        }
+
+        $financialCycle->delete();
+
+        return response()->json(['success' => true, 'message' => 'Cycle deleted.']);
     }
 
     public function close(Request $request, FinancialCycle $financialCycle): JsonResponse
