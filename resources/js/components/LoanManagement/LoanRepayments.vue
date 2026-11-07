@@ -43,10 +43,24 @@
                 <div class="row">
                     <div class="col-md-6"><BaseSelect v-model="form.loan_id" label="Loan" :options="options.loans" :error="errors.loan_id?.[0]" /></div>
                     <div class="col-md-6"><BaseSelect v-model="form.payment_method_id" label="Payment method" :options="options.payment_methods" :error="errors.payment_method_id?.[0]" /></div>
-                    <div class="col-md-6"><BaseInput v-model="form.amount" type="number" min="0" step="0.01" label="Amount" :error="errors.amount?.[0]" /></div>
-                    <div class="col-md-6"><DatePicker v-model="form.payment_date" label="Date" :error="errors.payment_date?.[0]" /></div>
-                    <div class="col-md-6"><BaseInput v-model="form.external_reference" label="Reference (optional)" :error="errors.external_reference?.[0]" /></div>
                 </div>
+
+                <div class="d-flex justify-content-between align-items-center mt-2 mb-1">
+                    <label class="form-label mb-0">Payments for this loan <small class="text-muted">(add a row for each date)</small></label>
+                    <button @click="addPayment" type="button" class="btn btn-outline-secondary btn-sm"><i class="bi bi-plus-lg"></i> Add another payment</button>
+                </div>
+                <div v-for="(payment, index) in form.payments" :key="index" class="row g-2 align-items-start border rounded pt-2 px-2 pb-0 mb-2">
+                    <div class="col-md-4"><DatePicker v-model="payment.payment_date" label="Date" :error="errors[`payments.${index}.payment_date`]?.[0] ?? (index === 0 ? errors.payment_date?.[0] : '')" /></div>
+                    <div class="col-md-3"><BaseInput v-model="payment.amount" type="number" min="0" step="0.01" label="Amount" :error="errors[`payments.${index}.amount`]?.[0] ?? (index === 0 ? errors.amount?.[0] : '')" /></div>
+                    <div class="col-md-4"><BaseInput v-model="payment.external_reference" label="Reference (optional)" :error="errors[`payments.${index}.external_reference`]?.[0]" /></div>
+                    <div class="col-md-1 d-flex align-items-center pt-3">
+                        <button v-if="form.payments.length > 1" @click="removePayment(index)" type="button" class="btn btn-outline-danger btn-sm" title="Remove this payment"><i class="bi bi-trash"></i></button>
+                    </div>
+                </div>
+                <div v-if="errors.payments?.[0]" class="text-danger small mb-1">{{ errors.payments[0] }}</div>
+                <p class="small mb-0" :class="overBalance ? 'text-danger' : 'text-muted'">
+                    Total of these payments: {{ money(paymentsTotal) }}<span v-if="selectedLoan"> &middot; the loan still owes {{ money(selectedLoan.balance) }}<span v-if="!overBalance">, {{ money(selectedLoan.balance - paymentsTotal) }} would remain</span><span v-else> (more than it owes)</span></span>
+                </p>
             </template>
             <template v-slot:footer><button @click="save" class="btn btn-primary" :disabled="saving">Save</button></template>
         </LargeModal>
@@ -78,6 +92,15 @@ export default {
     },
 
     computed: {
+        selectedLoan() {
+            return (this.options.loans ?? []).find((loan) => String(loan.value) === String(this.form.loan_id)) ?? null;
+        },
+        paymentsTotal() {
+            return (this.form.payments ?? []).reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+        },
+        overBalance() {
+            return this.selectedLoan !== null && Math.round(this.paymentsTotal * 100) > Math.round(this.selectedLoan.balance * 100);
+        },
         importFields() {
             return [{ name: "payment_method_id", label: "Payment method (default: Cash)", type: "select", placeholder: "Cash / the group's first method", options: this.options.payment_methods ?? [] }];
         },
@@ -89,7 +112,19 @@ export default {
         },
 
         openAdd() {
-            this.openForm({ loan_id: "", payment_method_id: "", amount: "", payment_date: new Date().toISOString().slice(0, 10), external_reference: "" });
+            this.openForm({ loan_id: "", payment_method_id: "", payments: [this.blankPayment()] });
+        },
+
+        blankPayment() {
+            return { payment_date: new Date().toISOString().slice(0, 10), amount: "", external_reference: "" };
+        },
+
+        addPayment() {
+            this.form.payments.push(this.blankPayment());
+        },
+
+        removePayment(index) {
+            this.form.payments.splice(index, 1);
         },
 
         save() {

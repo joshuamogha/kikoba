@@ -54,32 +54,50 @@ class LoanRepaymentController extends Controller
             'can_manage' => $canManage,
             'options' => $canManage ? [
                 'loans' => $group->loans()->whereIn('status', ['active', 'overdue'])->with('groupMember:id,name')->orderBy('id')->get()
-                    ->map(fn ($loan) => ['value' => $loan->id, 'label' => "{$loan->loan_number} - {$loan->groupMember->name} (owes ".number_format((float) $loan->outstanding_balance, 2).')'])->all(),
+                    ->map(fn ($loan) => ['value' => $loan->id, 'label' => "{$loan->loan_number} - {$loan->groupMember->name} (owes ".number_format((float) $loan->outstanding_balance, 2).')', 'balance' => (float) $loan->outstanding_balance, 'disbursed' => $loan->disbursement_date->toDateString()])->all(),
                 'payment_methods' => $this->options($group->paymentMethods()->where('is_active', true)->orderBy('display_order')->orderBy('id')),
             ] : null,
         ])->response();
     }
 
+    /**
+     * Record one or several repayments (a date and an amount each) for the same loan. They are pending until approved.
+     */
     public function store(StoreLoanRepaymentRequest $request): JsonResponse
     {
-        $group = $request->group();
-        $loan = $group->loans()->findOrFail($request->validated('loan_id'));
-        $date = Carbon::parse($request->validated('payment_date'));
+        $loan = $request->group()->loans()->findOrFail($request->validated('loan_id'));
 
-        $repayment = DB::transaction(function () use ($request, $loan, $date): LoanRepayment {
-            $repayment = LoanRepayment::query()->create([
-                ...$request->validated(),
-                'group_member_id' => $loan->group_member_id,
-                'repayment_number' => 'PENDING-'.uniqid(),
-                'status' => 'pending',
-                'received_by' => $request->user()->id,
-            ]);
-            $repayment->update(['repayment_number' => sprintf('LR-%d-%06d', $date->year, $repayment->id)]);
+        $repayments = DB::transaction(function () use ($request, $loan): array {
+            return array_map(function (array $entry) use ($request, $loan): LoanRepayment {
+                $date = Carbon::parse($entry['payment_date']);
 
-            return $repayment;
+                $repayment = LoanRepayment::query()->create([
+                    'loan_id' => $loan->id,
+                    'group_member_id' => $loan->group_member_id,
+                    'payment_method_id' => $request->validated('payment_method_id'),
+                    'payment_date' => $date->toDateString(),
+                    'amount' => $entry['amount'],
+                    'external_reference' => $entry['external_reference'],
+                    'repayment_number' => 'PENDING-'.uniqid(),
+                    'status' => 'pending',
+                    'received_by' => $request->user()->id,
+                ]);
+                $repayment->update(['repayment_number' => sprintf('LR-%d-%06d', $date->year, $repayment->id)]);
+
+                return $repayment;
+            }, $request->entries());
         });
 
-        return $this->saved($repayment, 'Repayment recorded successfully.', 201);
+        foreach ($repayments as $repayment) {
+            $repayment->load(self::RELATIONS);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => count($repayments) > 1 ? count($repayments).' repayments recorded successfully.' : 'Repayment recorded successfully.',
+            'data' => (new LoanRepaymentResource($repayments[0]))->resolve(),
+            'records' => array_map(fn (LoanRepayment $repayment) => (new LoanRepaymentResource($repayment))->resolve(), $repayments),
+        ], 201);
     }
 
     public function approve(Request $request, LoanRepayment $loanRepayment, AllocateLoanRepayment $allocate, RecordPaymentTransaction $record): JsonResponse
