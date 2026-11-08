@@ -16,16 +16,26 @@
 
             <h5>Shares</h5>
             <div class="table-responsive mb-4">
-                <table class="table table-bordered table-sm align-middle mb-0 report-table">
-                    <thead><tr><th>Month</th><th class="text-end">Shares</th><th class="text-end">Amount</th></tr></thead>
+                <table class="table table-bordered table-sm align-middle text-center mb-0 report-table">
+                    <thead>
+                        <tr>
+                            <th class="text-start"></th>
+                            <th v-for="month in report.months" :key="month.key">{{ month.label.split(" ")[0] }}<div class="small text-muted fw-normal">{{ month.key.slice(0, 4) }}</div></th>
+                            <th class="text-end">Total</th>
+                        </tr>
+                    </thead>
                     <tbody>
-                        <tr v-for="row in report.shares.rows" :key="row.key">
-                            <td>{{ row.label }}</td>
-                            <td class="text-end">{{ row.shares || "" }}</td>
-                            <td class="text-end">{{ row.amount > 0 ? money(row.amount) : "" }}</td>
+                        <tr>
+                            <td class="text-start text-nowrap">Shares</td>
+                            <td v-for="row in report.shares.rows" :key="row.key">{{ row.shares || "" }}</td>
+                            <td class="text-end fw-semibold">{{ report.shares.total_shares }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-start text-nowrap">Amount</td>
+                            <td v-for="row in report.shares.rows" :key="row.key">{{ row.amount > 0 ? money(row.amount) : "" }}</td>
+                            <td class="text-end fw-semibold">{{ money(report.shares.total_amount) }}</td>
                         </tr>
                     </tbody>
-                    <tfoot><tr class="fw-semibold"><td>Total</td><td class="text-end">{{ report.shares.total_shares }}</td><td class="text-end">{{ money(report.shares.total_amount) }}</td></tr></tfoot>
                 </table>
             </div>
 

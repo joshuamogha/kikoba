@@ -150,6 +150,7 @@ test('every report can be downloaded as CSV with the same figures', function () 
     $text = $statement->streamedContent();
 
     expect($text)->toContain('Member statement')->toContain('SHARES')->toContain('CONTRIBUTIONS')->toContain('LOANS')
+        ->toContain('Dec 2025')->toContain('Shares,2,0,0,0,0,0,0,0,0,0,0,3,5')->toContain('Amount,10000,0,0,0,0,0,0,0,0,0,0,15000,25000')
         ->toContain($this->plainMember->name)->toContain('Jamii')->toContain($this->loan->loan_number)->toContain('75000');
 
     $shares = $this->actingAs($this->chair)->get(reportUrl('monthly-shares', $this, ['format' => 'csv']))->assertOk()->streamedContent();
