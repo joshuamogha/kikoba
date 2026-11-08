@@ -1,0 +1,61 @@
+<template>
+    <div class="card report">
+        <div class="card-header no-print">
+            <ReportToolbar title="Monthly shares" :groups="groups" :group-id="groupId" :cycles="cycles" :cycle-id="cycleId" :csv-url="csvUrl"
+                @group="onGroup" @cycle="onCycle" @print="print" />
+        </div>
+
+        <div v-if="report" class="card-body">
+            <div class="report-header mb-3">
+                <h4 class="mb-0">{{ report.group.name }}</h4>
+                <div>Monthly shares &middot; {{ report.cycle.name }} ({{ report.cycle.start_date }} to {{ report.cycle.end_date }})</div>
+                <div class="small text-muted">Printed {{ new Date().toISOString().slice(0, 10) }}</div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-bordered table-sm align-middle text-center mb-0 report-table">
+                    <thead>
+                        <tr>
+                            <th class="text-start">#</th>
+                            <th class="text-start">Name</th>
+                            <th v-for="month in report.months" :key="month.key">{{ month.label.split(" ")[0] }}<div class="small text-muted fw-normal">{{ month.key.slice(0, 4) }}</div></th>
+                            <th>Total shares</th>
+                            <th class="text-end">Total amount ({{ currency }})</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="row in report.rows" :key="row.member_id">
+                            <td class="text-start">{{ row.member_number }}</td>
+                            <td class="text-start text-nowrap">{{ row.name }}</td>
+                            <td v-for="month in report.months" :key="month.key">{{ row.cells[month.key].quantity || "" }}</td>
+                            <td class="fw-semibold">{{ row.total_shares }}</td>
+                            <td class="text-end fw-semibold">{{ money(row.total) }}</td>
+                        </tr>
+                        <tr v-if="!report.rows.length"><td :colspan="report.months.length + 4" class="text-muted py-4">No members in this cycle.</td></tr>
+                    </tbody>
+                    <tfoot v-if="report.rows.length > 1">
+                        <tr class="fw-semibold">
+                            <td></td>
+                            <td class="text-start">Total</td>
+                            <td v-for="month in report.months" :key="month.key">{{ report.month_shares[month.key] || "" }}</td>
+                            <td>{{ report.total_shares }}</td>
+                            <td class="text-end">{{ money(report.grand_total) }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+        <div v-else class="card-body text-center text-muted py-4">{{ loaded ? "This group has no financial cycle yet." : "Loading..." }}</div>
+    </div>
+</template>
+
+<script>
+import reportPage from "../../utils/reportPage";
+
+export default {
+    mixins: [reportPage],
+
+    data() {
+        return { endpoint: "/reports/monthly-shares" };
+    },
+};
+</script>

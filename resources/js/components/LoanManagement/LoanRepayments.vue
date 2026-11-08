@@ -28,7 +28,11 @@
                         <td>{{ item.payment_date }}</td>
                         <td><StatusBadge :status="item.status" /></td>
                         <td v-if="canManage">
-                            <button v-if="item.status === 'pending'" @click="approve(item)" class="btn btn-success btn-sm" title="Approve"><i class="bi bi-check-lg"></i></button>
+                            <div class="btn-group btn-group-sm">
+                                <button v-if="item.status === 'pending'" @click="approve(item)" class="btn btn-success" title="Approve"><i class="bi bi-check-lg"></i></button>
+                                <button @click="openEdit(item)" class="btn btn-secondary" title="Edit"><i class="bi bi-pencil"></i></button>
+                                <button @click="deleting = item" class="btn btn-danger" title="Delete"><i class="bi bi-trash"></i></button>
+                            </div>
                         </td>
                     </tr>
                     <tr v-if="!items.length"><td :colspan="canManage ? 9 : 8" class="text-center text-muted py-4">{{ emptyMessage }}</td></tr>
@@ -36,6 +40,29 @@
             </table>
         </div>
         <div v-if="meta.total" class="card-footer"><Pagination :meta="meta" @change="load" /></div>
+
+        <MediumModal v-if="editModal" @close="closeEdit">
+            <template v-slot:header><h4>Edit repayment {{ editing.repayment_number }}</h4></template>
+            <template v-slot:body>
+                <p class="small text-muted">Loan {{ editing.loan_number }} &middot; {{ editing.member }}<span v-if="editing.status === 'approved'">. This repayment is approved, so the loan's installments and balance are recalculated when you save.</span></p>
+                <div class="row">
+                    <div class="col-md-6"><DatePicker v-model="editing.payment_date" label="Date" :error="errors.payment_date?.[0]" /></div>
+                    <div class="col-md-6"><BaseInput v-model="editing.amount" type="number" min="0" step="0.01" label="Amount" :error="errors.amount?.[0]" /></div>
+                    <div class="col-md-6"><BaseSelect v-model="editing.payment_method_id" label="Payment method" :options="options.payment_methods" :error="errors.payment_method_id?.[0]" /></div>
+                    <div class="col-md-6"><BaseInput v-model="editing.external_reference" label="Reference (optional)" :error="errors.external_reference?.[0]" /></div>
+                </div>
+            </template>
+            <template v-slot:footer><button @click="update" class="btn btn-primary" :disabled="saving">Update</button></template>
+        </MediumModal>
+
+        <ConfirmModal v-if="deleting" @close="deleting = null">
+            <template v-slot:header><h4>Alert</h4></template>
+            <template v-slot:body>
+                Delete repayment {{ deleting.repayment_number }} ({{ money(deleting.amount) }} on {{ deleting.payment_date }})?
+                <span v-if="deleting.status === 'approved'"> It is approved, so its payment transaction is removed and the loan's installments, balance and status are recalculated.</span>
+            </template>
+            <template v-slot:footer><button @click="destroy" class="btn btn-danger">Delete</button></template>
+        </ConfirmModal>
 
         <LargeModal v-if="formModal" @close="closeModal">
             <template v-slot:header><h4>Add repayment</h4></template>
@@ -81,6 +108,9 @@ export default {
     data() {
         return {
             endpoint: "/loan-repayments",
+            editModal: false,
+            editing: {},
+            deleting: null,
             importModal: false,
             importColumns: [
                 { name: "loan_number", required: true, description: "The loan number from the Loans page, e.g. LN-2026-000012. It identifies the loan and its member.", example: "LN-2026-000012" },
@@ -109,6 +139,51 @@ export default {
     methods: {
         approve(item) {
             this.act(axios.patch(`${this.endpoint}/${item.id}/approve`));
+        },
+
+        openEdit(item) {
+            this.editing = {
+                id: item.id,
+                repayment_number: item.repayment_number,
+                loan_number: item.loan_number,
+                member: item.member,
+                status: item.status,
+                payment_date: item.payment_date,
+                amount: item.amount,
+                payment_method_id: item.payment_method_id,
+                external_reference: item.external_reference ?? "",
+            };
+            this.errors = {};
+            this.editModal = true;
+        },
+
+        closeEdit() {
+            this.editModal = false;
+            this.errors = {};
+        },
+
+        update() {
+            const { payment_date, amount, payment_method_id, external_reference } = this.editing;
+
+            this.saving = true;
+            this.errors = {};
+
+            axios
+                .put(`${this.endpoint}/${this.editing.id}`, { payment_date, amount, payment_method_id, external_reference, group_id: this.groupId })
+                .then((response) => {
+                    this.closeEdit();
+                    this.$toast.success(response.data.message);
+                    this.load(this.meta.current_page);
+                })
+                .catch(this.handleError)
+                .finally(() => (this.saving = false));
+        },
+
+        destroy() {
+            const item = this.deleting;
+
+            this.deleting = null;
+            this.act(axios.delete(`${this.endpoint}/${item.id}`, { data: { group_id: this.groupId } }));
         },
 
         openAdd() {

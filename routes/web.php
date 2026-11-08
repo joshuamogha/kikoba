@@ -26,6 +26,9 @@ use App\Http\Controllers\PaymentManagement\GroupIncomeController;
 use App\Http\Controllers\PaymentManagement\LookupController;
 use App\Http\Controllers\PaymentManagement\PaymentPageController;
 use App\Http\Controllers\PaymentManagement\PaymentTransactionController;
+use App\Http\Controllers\ReportManagement\LoanStatementController;
+use App\Http\Controllers\ReportManagement\MemberStatementController;
+use App\Http\Controllers\ReportManagement\MonthlyGridReportController;
 use App\Http\Controllers\SettingManagement\FinePaymentController;
 use App\Http\Controllers\SettingManagement\FineTypeController;
 use App\Http\Controllers\SettingManagement\MemberFineController;
@@ -104,6 +107,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     }
 
     Route::get('contribution-calendar', [ContributionCalendarController::class, 'index'])->name('contribution-calendar.index');
+
+    Route::get('reports/member-statement', [MemberStatementController::class, 'index'])->name('reports.member-statement');
+    Route::get('reports/monthly-shares', [MonthlyGridReportController::class, 'shares'])->name('reports.monthly-shares');
+    Route::get('reports/monthly-contributions', [MonthlyGridReportController::class, 'contributions'])->name('reports.monthly-contributions');
+    Route::get('reports/loan-statement', [LoanStatementController::class, 'index'])->name('reports.loan-statement');
     Route::get('contributions/import/template', [ContributionImportController::class, 'template'])->name('contributions.template');
     Route::post('contributions/import', [ContributionImportController::class, 'import'])->name('contributions.import');
     Route::resource('contributions', ContributionController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
@@ -136,7 +144,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('loan-repayments/import/template', [LoanRepaymentImportController::class, 'template'])->name('loan-repayments.template');
     Route::post('loan-repayments/import', [LoanRepaymentImportController::class, 'import'])->name('loan-repayments.import');
-    Route::resource('loan-repayments', LoanRepaymentController::class)->only(['index', 'store']);
+    Route::resource('loan-repayments', LoanRepaymentController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::patch('loan-repayments/{loan_repayment}/approve', [LoanRepaymentController::class, 'approve'])->name('loan-repayments.approve');
 
     Route::get('setting-management/{page}', [SettingPageController::class, 'show'])->whereIn('page', array_keys(SettingPageController::PAGES))->name('setting-pages.show');

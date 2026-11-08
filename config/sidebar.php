@@ -95,6 +95,17 @@ return [
             ],
         ],
         [
+            'label' => 'Reports',
+            'icon' => 'bi-file-earmark-bar-graph',
+            'color' => 'text-danger',
+            'items' => [
+                ['label' => 'Member Statement', 'icon' => 'bi-person-lines-fill', 'route' => 'reports.member-statement'],
+                ['label' => 'Monthly Shares', 'icon' => 'bi-pie-chart', 'route' => 'reports.monthly-shares'],
+                ['label' => 'Monthly Contributions', 'icon' => 'bi-wallet2', 'route' => 'reports.monthly-contributions'],
+                ['label' => 'Loan Statement', 'icon' => 'bi-bank', 'route' => 'reports.loan-statement'],
+            ],
+        ],
+        [
             'label' => 'Setting Management',
             'icon' => 'bi-gear-fill',
             'color' => 'text-purple',

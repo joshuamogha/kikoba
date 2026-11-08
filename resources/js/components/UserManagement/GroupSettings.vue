@@ -1,8 +1,8 @@
 <template>
     <div v-if="form">
-        <div class="row">
+        <div class="row gx-4">
             <div class="col-lg-6">
-                <div class="card">
+                <div class="card mb-4">
                     <div class="card-header"><h4 class="mb-0">Contributions</h4></div>
                     <div class="card-body">
                         <BaseSelect v-model="form.contribution_frequency_id" label="Contribution frequency"
@@ -28,7 +28,7 @@
                     </div>
                 </div>
 
-                <div class="card">
+                <div class="card mb-4">
                     <div class="card-header"><h4 class="mb-0">Shares</h4></div>
                     <div class="card-body">
                         <BaseInput v-model="form.share_price" type="number" min="0" step="0.01"
@@ -51,7 +51,7 @@
             </div>
 
             <div class="col-lg-6">
-                <div class="card">
+                <div class="card mb-4">
                     <div class="card-header"><h4 class="mb-0">Loans</h4></div>
                     <div class="card-body">
                         <BaseSelect v-model="form.loan_interest_method_id" label="Interest method"
@@ -94,7 +94,7 @@
                     </div>
                 </div>
 
-                <div class="card">
+                <div class="card mb-4">
                     <div class="card-header"><h4 class="mb-0">Penalties and approvals</h4></div>
                     <div class="card-body">
                         <BaseSelect v-model="form.penalty_type_id" label="Default penalty type"

@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\LoanManagement;
 
 use App\Actions\LoanManagement\AllocateLoanRepayment;
+use App\Actions\LoanManagement\RebuildLoanPayments;
 use App\Actions\PaymentManagement\RecordPaymentTransaction;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\PaymentManagement\Concerns\ResolvesPaymentGroup;
 use App\Http\Requests\LoanManagement\StoreLoanRepaymentRequest;
+use App\Http\Requests\LoanManagement\UpdateLoanRepaymentRequest;
 use App\Http\Resources\LoanManagement\LoanRepaymentResource;
 use App\Models\LoanManagement\LoanRepayment;
 use Illuminate\Http\JsonResponse;
@@ -98,6 +100,52 @@ class LoanRepaymentController extends Controller
             'data' => (new LoanRepaymentResource($repayments[0]))->resolve(),
             'records' => array_map(fn (LoanRepayment $repayment) => (new LoanRepaymentResource($repayment))->resolve(), $repayments),
         ], 201);
+    }
+
+    /**
+     * Correct a repayment (date, amount, method, reference). An approved repayment is re-applied to the loan, so the installments,
+     * balance and status follow, and its logged payment transaction is updated.
+     */
+    public function update(UpdateLoanRepaymentRequest $request, LoanRepayment $loanRepayment, RebuildLoanPayments $rebuild): JsonResponse
+    {
+        DB::transaction(function () use ($request, $loanRepayment, $rebuild): void {
+            $loanRepayment->update($request->safe()->only(['payment_method_id', 'payment_date', 'amount', 'external_reference']));
+
+            if ($loanRepayment->status === 'approved') {
+                $loanRepayment->paymentTransactions()->update([
+                    'payment_method_id' => $loanRepayment->payment_method_id,
+                    'amount' => $loanRepayment->amount,
+                    'provider_transaction_id' => $loanRepayment->external_reference,
+                ]);
+
+                $rebuild->handle($loanRepayment->loan);
+            }
+        });
+
+        return $this->saved($loanRepayment->refresh(), 'Repayment updated successfully.');
+    }
+
+    /**
+     * Delete a repayment. An approved one also leaves the loan's schedule: its payment transaction is removed and the installments,
+     * balance and status are worked out again from the repayments that remain.
+     */
+    public function destroy(LoanRepayment $loanRepayment, RebuildLoanPayments $rebuild): JsonResponse
+    {
+        Gate::authorize('manageLoans', $loanRepayment->loan->group);
+
+        DB::transaction(function () use ($loanRepayment, $rebuild): void {
+            $loan = $loanRepayment->loan;
+            $wasApproved = $loanRepayment->status === 'approved';
+
+            $loanRepayment->paymentTransactions()->delete();
+            $loanRepayment->delete();
+
+            if ($wasApproved) {
+                $rebuild->handle($loan);
+            }
+        });
+
+        return response()->json(['success' => true, 'message' => 'Repayment deleted.']);
     }
 
     public function approve(Request $request, LoanRepayment $loanRepayment, AllocateLoanRepayment $allocate, RecordPaymentTransaction $record): JsonResponse

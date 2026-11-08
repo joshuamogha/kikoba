@@ -22,15 +22,16 @@ class BuildContributionCalendar
      * For contributions the expected amount is the minimum of the group's active mandatory funds; for shares any purchase counts.
      *
      * @param  string  $type  contributions or shares
+     * @param  int|null  $fundId  count only this fund's contributions (contributions type only)
      * @return array{months: array<int, array{key: string, label: string}>, expected: float, rows: array<int, array<string, mixed>>, totals: array<string, float>, grand_total: float}
      */
-    public function handle(Group $group, FinancialCycle $cycle, string $type, ?int $onlyMemberId = null): array
+    public function handle(Group $group, FinancialCycle $cycle, string $type, ?int $onlyMemberId = null, ?int $fundId = null): array
     {
         $months = $this->months($cycle);
         $expected = $type === 'contributions'
             ? (float) $group->groupFunds()->where('status', 'active')->where('is_mandatory', true)->sum('minimum_contribution')
             : 0.0;
-        $paid = $type === 'contributions' ? $this->contributionAmounts($group, $cycle, $onlyMemberId) : $this->shareAmounts($group, $cycle, $onlyMemberId);
+        $paid = $type === 'contributions' ? $this->contributionAmounts($group, $cycle, $onlyMemberId, $fundId) : $this->shareAmounts($group, $cycle, $onlyMemberId);
 
         $members = $group->groupMembers()
             ->whereDate('joined_at', '<=', $cycle->end_date)
@@ -81,7 +82,7 @@ class BuildContributionCalendar
      *
      * @return array<int, array{key: string, label: string}>
      */
-    private function months(FinancialCycle $cycle): array
+    public function months(FinancialCycle $cycle): array
     {
         $months = [];
         $month = $cycle->start_date->copy()->startOfMonth();
@@ -99,12 +100,13 @@ class BuildContributionCalendar
      *
      * @return array<int, array<string, array{amount: float, quantity: int}>>
      */
-    private function contributionAmounts(Group $group, FinancialCycle $cycle, ?int $onlyMemberId): array
+    private function contributionAmounts(Group $group, FinancialCycle $cycle, ?int $onlyMemberId, ?int $fundId = null): array
     {
         $amounts = [];
 
         ContributionItem::query()
             ->with('contribution:id,group_member_id,contribution_date')
+            ->when($fundId !== null, fn ($query) => $query->where('group_fund_id', $fundId))
             ->whereHas('contribution', fn ($contribution) => $contribution
                 ->where('group_id', $group->id)
                 ->where('financial_cycle_id', $cycle->id)

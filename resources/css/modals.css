@@ -22,3 +22,47 @@
     margin-left: 0;
     border-radius: var(--bs-btn-border-radius);
 }
+
+/* Reports: the report header is the title of a printed page, tables stay together and the app chrome disappears. */
+.report-table th,
+.report-table td {
+    font-size: 0.85rem;
+}
+
+@media print {
+    .app-sidebar,
+    .app-header,
+    .app-footer,
+    .app-content-header,
+    .no-print,
+    .Toastification__container {
+        display: none !important;
+    }
+
+    .app-main,
+    .app-content {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .app-wrapper {
+        display: block !important;
+    }
+
+    .report.card {
+        border: 0;
+        box-shadow: none;
+    }
+
+    .report .table-responsive {
+        overflow: visible !important;
+    }
+
+    .report-table tr {
+        page-break-inside: avoid;
+    }
+
+    .report h5 {
+        break-after: avoid;
+    }
+}
