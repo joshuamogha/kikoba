@@ -52,6 +52,8 @@ use App\Http\Controllers\UserManagement\RelationController;
 use App\Http\Controllers\UserManagement\UserController;
 use Illuminate\Support\Facades\Route;
 
+Route::get('/', fn () => view('landing'))->name('home');
+
 Route::middleware('guest')->group(function () {
     Route::get('login', [LoginController::class, 'create'])->name('login');
     Route::post('login', [LoginController::class, 'store']);
@@ -81,7 +83,7 @@ Route::middleware('auth')->group(function () {
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('/', function () {
+    Route::get('dashboard', function () {
         return view('backend.pages.home');
     })->name('dashboard');
 

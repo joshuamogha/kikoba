@@ -47,6 +47,8 @@
             display: flex; flex-direction: column; justify-content: space-between; gap: 70px;
         }
         .sign-in-welcome a { color: inherit; }
+        .back-home { font-size: 13px; opacity: .85; }
+        .back-home:hover { opacity: 1; text-decoration: underline; }
         .brand { letter-spacing: 1px; font-size: 23px; font-weight: 750; }
         .sign-in-welcome h1 { font-size: 46px; font-weight: 500; line-height: 1.05; letter-spacing: -1.8px; overflow-wrap: anywhere; margin-bottom: 24px; }
         .sign-in-welcome p { font-size: 14px; opacity: .85; margin: 0; }
@@ -84,7 +86,10 @@
 <body class="sign-in-page">
     <main class="sign-in-shell">
         <section class="sign-in-welcome">
-            <a href="{{ route('login') }}" class="brand">{{ config('app.name') }}</a>
+            <div class="d-flex flex-column gap-2 align-items-start">
+                <a href="{{ route('home') }}" class="brand">{{ config('app.name') }}</a>
+                <a href="{{ route('home') }}" class="back-home">&larr; Back to home</a>
+            </div>
             <div>
                 <h1>@yield('welcome_title')</h1>
                 <p>@yield('welcome_text')</p>

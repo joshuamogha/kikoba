@@ -5,8 +5,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
-test('the application returns a successful response', function () {
-    $response = $this->actingAs(User::factory()->create())->get('/');
+test('the dashboard returns a successful response for a signed-in user', function () {
+    $response = $this->actingAs(User::factory()->create())->get(route('dashboard'));
 
     $response->assertStatus(200);
 });
