@@ -66,6 +66,7 @@ return [
                 ['label' => 'Payment Transactions', 'icon' => 'bi-arrow-left-right', 'route' => 'payment-transactions.index'],
                 ['label' => 'Income', 'icon' => 'bi-graph-up-arrow', 'route' => 'payment-pages.show', 'params' => ['page' => 'income']],
                 ['label' => 'Expenses', 'icon' => 'bi-graph-down-arrow', 'route' => 'payment-pages.show', 'params' => ['page' => 'expenses']],
+                ['label' => 'Fines', 'icon' => 'bi-exclamation-octagon', 'route' => 'payment-pages.show', 'params' => ['page' => 'fines']],
             ],
         ],
         [
@@ -112,7 +113,7 @@ return [
             'items' => [
                 ['label' => 'General', 'icon' => 'bi-sliders', 'route' => 'setting-pages.show', 'params' => ['page' => 'general']],
                 ['label' => 'Finance', 'icon' => 'bi-percent', 'route' => 'setting-pages.show', 'params' => ['page' => 'finance']],
-                ['label' => 'Fines', 'icon' => 'bi-exclamation-octagon', 'route' => 'setting-pages.show', 'params' => ['page' => 'fines']],
+                ['label' => 'Fine Types', 'icon' => 'bi-exclamation-octagon', 'route' => 'setting-pages.show', 'params' => ['page' => 'fines']],
             ],
         ],
     ],

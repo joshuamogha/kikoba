@@ -21,7 +21,7 @@ class FinePaymentController extends Controller
     public function index(Request $request): RedirectResponse|JsonResponse
     {
         if (! $request->expectsJson()) {
-            return redirect()->route('setting-pages.show', ['page' => 'fines']);
+            return redirect()->route('payment-pages.show', ['page' => 'fines']);
         }
 
         $group = $this->groupFor($request);

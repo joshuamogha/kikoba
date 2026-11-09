@@ -90,7 +90,7 @@ test('members see only their own fines and managers see all', function () {
     $this->actingAs($this->chair)->postJson(route('member-fines.store'), fineIssuePayload($this))->assertCreated();
     $this->actingAs($this->chair)->postJson(route('member-fines.store'), fineIssuePayload($this, ['group_member_id' => $this->treasurerMember->id]))->assertCreated();
 
-    $this->actingAs($this->plain)->get(route('member-fines.index'))->assertRedirect(route('setting-pages.show', 'fines'));
+    $this->actingAs($this->plain)->get(route('member-fines.index'))->assertRedirect(route('payment-pages.show', 'fines'));
     $this->actingAs($this->plain)->getJson(route('member-fines.index', ['group_id' => $this->group->id]))
         ->assertJsonCount(1, 'data')->assertJsonPath('can_manage', false)->assertJsonPath('options', null);
     $this->actingAs($this->treasurer)->getJson(route('member-fines.index', ['group_id' => $this->group->id]))

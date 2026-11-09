@@ -32,7 +32,7 @@ beforeEach(function () {
 });
 
 test('leaders see every fine payment of the chosen group and the page redirects to the fines tab', function () {
-    $this->actingAs($this->chair)->get(route('fine-payments.index'))->assertRedirect(route('setting-pages.show', 'fines'));
+    $this->actingAs($this->chair)->get(route('fine-payments.index'))->assertRedirect(route('payment-pages.show', 'fines'));
 
     $this->actingAs($this->chair)->getJson(route('fine-payments.index', ['group_id' => $this->group->id]))
         ->assertOk()->assertJsonCount(2, 'data')->assertJsonPath('can_manage', true)->assertJsonPath('data.0.amount', 1000);
@@ -51,5 +51,5 @@ test('fine payments can be searched by member name or number', function () {
 });
 
 test('the fines settings page has a fine payments tab', function () {
-    $this->actingAs($this->plain)->get(route('setting-pages.show', 'fines'))->assertOk()->assertSee('fine-payments');
+    $this->actingAs($this->plain)->get(route('payment-pages.show', 'fines'))->assertOk()->assertSee('fine-payments');
 });

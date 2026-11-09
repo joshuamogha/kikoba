@@ -38,11 +38,9 @@ class SettingPageController extends Controller
             ],
         ],
         'fines' => [
-            'title' => 'Fines',
+            'title' => 'Fine types',
             'tabs' => [
                 ['key' => 'fine-types', 'title' => 'Fine types', 'component' => 'fine-types'],
-                ['key' => 'member-fines', 'title' => 'Member fines', 'component' => 'member-fines'],
-                ['key' => 'fine-payments', 'title' => 'Fine payments', 'component' => 'fine-payments'],
             ],
         ],
     ];

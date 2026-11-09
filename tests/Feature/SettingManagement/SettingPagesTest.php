@@ -19,7 +19,7 @@ beforeEach(function () {
 dataset('setting pages', [
     'general' => ['general', ['group-settings', 'membership-types']],
     'finance' => ['finance', ['fund-types', 'contribution-frequencies', 'loan-interest-methods', 'penalty-types']],
-    'fines' => ['fines', ['fine-types', 'member-fines']],
+    'fines' => ['fines', ['fine-types']],
 ]);
 
 test('each setting page renders its tabs', function (string $page, array $tabKeys) {

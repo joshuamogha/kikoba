@@ -32,6 +32,13 @@ class PaymentPageController extends Controller
                 ['key' => 'group-expense-categories', 'title' => 'Expense categories', 'component' => 'lookup-manager', 'props' => ['title' => 'Expense categories', 'endpoint' => '/group-expense-categories']],
             ],
         ],
+        'fines' => [
+            'title' => 'Fines',
+            'tabs' => [
+                ['key' => 'member-fines', 'title' => 'Member fines', 'component' => 'member-fines'],
+                ['key' => 'fine-payments', 'title' => 'Fine payments', 'component' => 'fine-payments'],
+            ],
+        ],
     ];
 
     public function show(Request $request, string $page): View

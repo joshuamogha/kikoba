@@ -39,3 +39,10 @@ test('the sidebar groups income and expenses and no longer lists contribution it
         ->assertDontSee('Contribution Items')
         ->assertDontSee('Contribution Schedules');
 });
+
+test('fines are a payment page with member fines and fine payments, linked from the sidebar', function () {
+    $this->actingAs($this->member)->get(route('payment-pages.show', 'fines'))
+        ->assertOk()->assertSee('member-fines')->assertSee('fine-payments');
+
+    $this->actingAs($this->member)->get(route('dashboard'))->assertSee(route('payment-pages.show', 'fines'), false);
+});

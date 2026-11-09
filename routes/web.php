@@ -32,6 +32,7 @@ use App\Http\Controllers\ReportManagement\MonthlyGridReportController;
 use App\Http\Controllers\SettingManagement\FinePaymentController;
 use App\Http\Controllers\SettingManagement\FineTypeController;
 use App\Http\Controllers\SettingManagement\MemberFineController;
+use App\Http\Controllers\SettingManagement\MemberFineImportController;
 use App\Http\Controllers\SettingManagement\SettingPageController;
 use App\Http\Controllers\ShareManagement\GroupShareController;
 use App\Http\Controllers\ShareManagement\MemberShareOutListController;
@@ -152,6 +153,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('setting-management/{page}', [SettingPageController::class, 'show'])->whereIn('page', array_keys(SettingPageController::PAGES))->name('setting-pages.show');
     Route::resource('fine-types', FineTypeController::class)->only(['index', 'store', 'update']);
     Route::get('fine-payments', [FinePaymentController::class, 'index'])->name('fine-payments.index');
+    Route::get('member-fines/import/template', [MemberFineImportController::class, 'template'])->name('member-fines.template');
+    Route::post('member-fines/import', [MemberFineImportController::class, 'import'])->name('member-fines.import');
     Route::resource('member-fines', MemberFineController::class)->only(['index', 'store']);
     Route::patch('member-fines/{member_fine}/waive', [MemberFineController::class, 'waive'])->name('member-fines.waive');
     Route::post('member-fines/{member_fine}/payments', [MemberFineController::class, 'pay'])->name('member-fines.pay');
