@@ -238,3 +238,20 @@ test('the opening balance starts the expected balance, ignores earlier movements
     $this->actingAs($this->chair)->getJson($url(['payment_method_id' => $this->group->paymentMethods()->value('id')]))
         ->assertJsonPath('data.opening.applies', false)->assertJsonPath('data.opening.brought_forward', 0);
 });
+
+test('deposits are all contributions plus the penalties paid, and penalties paid are not counted twice', function () {
+    $fineType = $this->group->fineTypes()->create(['name' => 'Late', 'code' => 'LATE', 'default_amount' => 2000, 'calculation_type' => 'fixed', 'status' => 'active']);
+    $fineId = $this->actingAs($this->chair)->postJson(route('member-fines.store'), [
+        'group_id' => $this->group->id, 'group_member_id' => $this->plainMember->id, 'fine_type_id' => $fineType->id,
+        'reason' => 'Late', 'fine_date' => '2026-06-05', 'amount' => 2000,
+    ])->assertCreated()->json('data.id');
+    $this->actingAs($this->chair)->postJson(route('member-fines.pay', $fineId), [
+        'amount' => 500, 'payment_method_id' => $this->group->paymentMethods()->value('id'), 'payment_date' => '2026-06-10',
+    ])->assertOk();
+
+    $report = $this->actingAs($this->chair)->getJson(route('reports.cash-reconciliation', ['group_id' => $this->group->id]));
+    $rows = collect($report->json('data.rows'))->pluck('value', 'label');
+
+    expect($rows['Deposits'])->toEqual(55500)->and($rows['Penalty Paid'])->toEqual(500)->and($rows['Penalties'])->toEqual(2000)
+        ->and($rows['Expected Balance'])->toEqual(-4500);
+});

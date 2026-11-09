@@ -15,9 +15,9 @@ class BuildCashReconciliation
 {
     /**
      * Every approved or paid movement of money in a period, to compare the expected balance with the mobile money account.
-     * Deposits are all contributions (savings, shares and every other fund); social funds, insurance, membership fees and other
-     * contributions are shown as parts of deposits. Loan repayments (principal and interest), penalties paid and other income also
-     * come in; loan disbursements, paid expenses and dividends (share-out payments) go out. Penalties charged (fines issued and late
+     * Deposits are all contributions (savings, shares and every other fund) plus the penalties paid (member fines and loan late
+     * penalties); social funds, insurance, membership fees, other contributions and penalty paid are shown as parts of deposits.
+     * Loan repayments (principal and interest) and other income also come in; loan disbursements and paid expenses are the withdrawals, and dividends (share-out payments) go out as their own line. Penalties charged (fines issued and late
      * penalties on loan installments) are shown for reference because they are not cash until paid.
      *
      * Loans have no payment method, so loan disbursements are left out when a payment method is chosen; the group's opening balance
@@ -52,7 +52,7 @@ class BuildCashReconciliation
     }
 
     /**
-     * The movements of money between two dates, without any opening balance. Its balance is money in minus withdrawals.
+     * The movements of money between two dates, without any opening balance. Its balance is money in minus withdrawals and dividends.
      *
      * @return array{figures: array<string, float>, money_in: float, balance: float}
      */
@@ -112,11 +112,12 @@ class BuildCashReconciliation
 
         $repaid = (float) $loanPaid->principal + (float) $loanPaid->interest;
         $penaltiesPaid = (float) $loanPaid->penalty + $finesPaid;
-        $withdrawals = $disbursed + $expenses + $dividends;
-        $moneyIn = $contributions['all'] + $repaid + $penaltiesPaid + $income;
+        $withdrawals = $disbursed + $expenses;
+        $deposits = $contributions['all'] + $penaltiesPaid;
+        $moneyIn = $deposits + $repaid + $income;
 
         $figures = [
-            'deposits' => $contributions['all'],
+            'deposits' => $deposits,
             'withdrawals' => $withdrawals,
             'penalties' => $finesIssued + $loanPenalties,
             'penalties_paid' => $penaltiesPaid,
@@ -132,7 +133,7 @@ class BuildCashReconciliation
         return [
             'figures' => array_map(fn (float $amount) => round($amount, 2), $figures),
             'money_in' => round($moneyIn, 2),
-            'balance' => round($moneyIn - $withdrawals, 2),
+            'balance' => round($moneyIn - $withdrawals - $dividends, 2),
         ];
     }
 
