@@ -26,6 +26,7 @@ use App\Http\Controllers\PaymentManagement\GroupIncomeController;
 use App\Http\Controllers\PaymentManagement\LookupController;
 use App\Http\Controllers\PaymentManagement\PaymentPageController;
 use App\Http\Controllers\PaymentManagement\PaymentTransactionController;
+use App\Http\Controllers\ReportManagement\CashReconciliationController;
 use App\Http\Controllers\ReportManagement\LoanStatementController;
 use App\Http\Controllers\ReportManagement\MemberStatementController;
 use App\Http\Controllers\ReportManagement\MonthlyGridReportController;
@@ -114,6 +115,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('reports/member-statement', [MemberStatementController::class, 'index'])->name('reports.member-statement');
     Route::get('reports/monthly-shares', [MonthlyGridReportController::class, 'shares'])->name('reports.monthly-shares');
     Route::get('reports/monthly-contributions', [MonthlyGridReportController::class, 'contributions'])->name('reports.monthly-contributions');
+    Route::get('reports/cash-reconciliation', [CashReconciliationController::class, 'index'])->name('reports.cash-reconciliation');
     Route::get('reports/loan-statement', [LoanStatementController::class, 'index'])->name('reports.loan-statement');
     Route::get('contributions/import/template', [ContributionImportController::class, 'template'])->name('contributions.template');
     Route::post('contributions/import', [ContributionImportController::class, 'import'])->name('contributions.import');

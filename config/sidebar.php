@@ -104,6 +104,7 @@ return [
                 ['label' => 'Monthly Shares', 'icon' => 'bi-pie-chart', 'route' => 'reports.monthly-shares'],
                 ['label' => 'Monthly Contributions', 'icon' => 'bi-wallet2', 'route' => 'reports.monthly-contributions'],
                 ['label' => 'Loan Statement', 'icon' => 'bi-bank', 'route' => 'reports.loan-statement'],
+                ['label' => 'Cash Reconciliation', 'icon' => 'bi-calculator', 'route' => 'reports.cash-reconciliation'],
             ],
         ],
         [

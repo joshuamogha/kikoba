@@ -5,6 +5,22 @@
                 :can-manage="canManage" add-label="Disburse" @group="onGroup" @search="onSearch" @status="onStatus"
                 @add="openForm({ loan_application_id: '', disbursement_date: new Date().toISOString().slice(0, 10) })" />
         </div>
+        <div v-if="totals" class="card-body border-bottom">
+            <div class="row text-center">
+                <div class="col-4">
+                    <div class="text-muted small">Total</div>
+                    <div class="fs-4 fw-semibold">{{ money(totals.total) }}</div>
+                </div>
+                <div class="col-4">
+                    <div class="text-muted small">Paid</div>
+                    <div class="fs-4 fw-semibold">{{ money(totals.paid) }}</div>
+                </div>
+                <div class="col-4">
+                    <div class="text-muted small">Balance</div>
+                    <div class="fs-4 fw-semibold">{{ money(totals.balance) }}</div>
+                </div>
+            </div>
+        </div>
         <div class="card-body p-0">
             <table class="table table-striped mb-0 align-middle">
                 <thead>

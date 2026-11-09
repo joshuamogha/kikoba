@@ -4,6 +4,22 @@
             <PaymentToolbar title="Loan installments" :groups="groups" :group-id="groupId" :statuses="['pending', 'partial', 'paid', 'overdue']"
                 @group="onGroup" @search="onSearch" @status="onStatus" />
         </div>
+        <div v-if="totals" class="card-body border-bottom">
+            <div class="row text-center">
+                <div class="col-4">
+                    <div class="text-muted small">Total amount</div>
+                    <div class="fs-4 fw-semibold">{{ money(totals.amount) }}</div>
+                </div>
+                <div class="col-4">
+                    <div class="text-muted small">Total paid</div>
+                    <div class="fs-4 fw-semibold">{{ money(totals.paid) }}</div>
+                </div>
+                <div class="col-4">
+                    <div class="text-muted small">Balance</div>
+                    <div class="fs-4 fw-semibold">{{ money(totals.balance) }}</div>
+                </div>
+            </div>
+        </div>
         <div class="card-body p-0">
             <table class="table table-striped mb-0 align-middle">
                 <thead>

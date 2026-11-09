@@ -45,6 +45,8 @@ class UpdateGroupSettingRequest extends FormRequest
             'late_payment_penalty_value' => ['required', 'numeric', 'min:0', 'max:9999999999999999'],
             'loan_guarantors_required' => ['required', 'integer', 'min:0', 'max:50'],
             'withdrawal_approvals_required' => ['required', 'integer', 'min:0', 'max:50'],
+            'opening_balance' => ['sometimes', 'numeric', 'min:0', 'max:9999999999999999'],
+            'opening_balance_date' => ['nullable', 'date', 'before_or_equal:today', Rule::requiredIf(fn () => (float) $this->input('opening_balance', 0) > 0)],
             'allow_partial_contributions' => ['required', 'boolean'],
             'allow_multiple_loans' => ['required', 'boolean'],
         ];

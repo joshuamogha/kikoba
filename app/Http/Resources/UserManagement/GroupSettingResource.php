@@ -38,6 +38,8 @@ class GroupSettingResource extends JsonResource
             'late_payment_penalty_value' => $this->late_payment_penalty_value,
             'loan_guarantors_required' => $this->loan_guarantors_required,
             'withdrawal_approvals_required' => $this->withdrawal_approvals_required,
+            'opening_balance' => $this->opening_balance,
+            'opening_balance_date' => $this->opening_balance_date?->toDateString(),
             'allow_partial_contributions' => $this->allow_partial_contributions,
             'allow_multiple_loans' => $this->allow_multiple_loans,
             'currency' => $group->currency,

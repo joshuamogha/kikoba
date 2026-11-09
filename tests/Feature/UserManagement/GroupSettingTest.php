@@ -101,3 +101,14 @@ test('the way interest is charged is a group setting, defaults to a fixed percen
 
     $this->actingAs($chair)->getJson(route('loan-products.index', ['group_id' => $group->id]))->assertJsonPath('options.defaults.interest_period', 'per_month');
 });
+
+test('the opening balance is saved with its date and needs a past date when it is more than zero', function () {
+    $this->actingAs($this->chair)->putJson(route('groups.settings.update', $this->group), validSettings($this->group, ['opening_balance' => 250000.5, 'opening_balance_date' => '2026-01-01']))
+        ->assertOk()->assertJsonPath('data.opening_balance', '250000.50')->assertJsonPath('data.opening_balance_date', '2026-01-01');
+
+    $this->actingAs($this->chair)->putJson(route('groups.settings.update', $this->group), validSettings($this->group, ['opening_balance' => 100]))
+        ->assertUnprocessable()->assertJsonValidationErrors('opening_balance_date');
+    $this->actingAs($this->chair)->putJson(route('groups.settings.update', $this->group), validSettings($this->group, ['opening_balance' => 100, 'opening_balance_date' => now()->addDay()->toDateString()]))
+        ->assertUnprocessable()->assertJsonValidationErrors('opening_balance_date');
+    $this->actingAs($this->plain)->putJson(route('groups.settings.update', $this->group), validSettings($this->group, ['opening_balance' => 100, 'opening_balance_date' => '2026-01-01']))->assertForbidden();
+});

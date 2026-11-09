@@ -29,7 +29,7 @@ class LoanInstallmentController extends Controller
         $search = trim($request->string('q')->toString());
         $status = $request->string('status')->toString();
 
-        $rows = LoanInstallment::query()
+        $query = LoanInstallment::query()
             ->whereHas('loan', fn ($loan) => $loan->where('group_id', $group->id))
             ->with('loan.groupMember')
             ->when(! $canManage, fn ($query) => $query->whereHas('loan.groupMember', fn ($member) => $member->where('user_id', $request->user()->id)))
@@ -38,10 +38,17 @@ class LoanInstallmentController extends Controller
                 ->where('loan_number', 'like', "%{$search}%")
                 ->orWhereHas('groupMember', fn ($member) => $member->where('name', 'like', "%{$search}%"))))
             ->orderBy('due_date')
-            ->orderBy('id')
-            ->paginate(15)
-            ->withQueryString();
+            ->orderBy('id');
 
-        return LoanInstallmentResource::collection($rows)->additional(['can_manage' => $canManage])->response();
+        $matching = $query->clone()->reorder()->toBase();
+        $due = round((float) (clone $matching)->sum('total_due'), 2);
+        $paid = round((float) (clone $matching)->sum('total_paid'), 2);
+
+        $rows = $query->paginate(15)->withQueryString();
+
+        return LoanInstallmentResource::collection($rows)->additional([
+            'can_manage' => $canManage,
+            'totals' => ['amount' => $due, 'paid' => $paid, 'balance' => round($due - $paid, 2)],
+        ])->response();
     }
 }

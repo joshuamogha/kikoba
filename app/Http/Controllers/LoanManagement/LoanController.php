@@ -34,7 +34,7 @@ class LoanController extends Controller
         $search = trim($request->string('q')->toString());
         $status = $request->string('status')->toString();
 
-        $rows = $group->loans()
+        $query = $group->loans()
             ->with(self::RELATIONS)
             ->when(! $canManage, fn ($query) => $query->whereHas('groupMember', fn ($member) => $member->where('user_id', $request->user()->id)))
             ->when(in_array($status, ['active', 'overdue', 'completed'], true), fn ($query) => $query->where('status', $status))
@@ -42,9 +42,16 @@ class LoanController extends Controller
                 ->where('loan_number', 'like', "%{$search}%")
                 ->orWhereHas('groupMember', fn ($member) => $member->where('name', 'like', "%{$search}%")->orWhere('member_number', 'like', "%{$search}%"))))
             ->orderByDesc('disbursement_date')
-            ->orderByDesc('id')
-            ->paginate(15)
-            ->withQueryString();
+            ->orderByDesc('id');
+
+        $matching = $query->clone()->reorder()->toBase();
+        $totals = [
+            'total' => round((float) (clone $matching)->sum('total_payable'), 2),
+            'paid' => round((float) (clone $matching)->sum('amount_paid'), 2),
+            'balance' => round((float) (clone $matching)->sum('outstanding_balance'), 2),
+        ];
+
+        $rows = $query->paginate(15)->withQueryString();
 
         $approved = $canManage
             ? $group->loanApplications()->where('status', 'approved')->doesntHave('loan')->with('groupMember:id,name')->orderBy('id')->get()
@@ -53,6 +60,7 @@ class LoanController extends Controller
 
         return LoanResource::collection($rows)->additional([
             'can_manage' => $canManage,
+            'totals' => $totals,
             'options' => ['approved_applications' => $approved],
         ])->response();
     }

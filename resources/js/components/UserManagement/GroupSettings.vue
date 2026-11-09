@@ -108,6 +108,19 @@
                             :error="errors.withdrawal_approvals_required?.[0]" />
                     </div>
                 </div>
+
+                <div class="card mb-4">
+                    <div class="card-header"><h4 class="mb-0">Opening balance</h4></div>
+                    <div class="card-body">
+                        <p class="small text-muted">The money the group held (for example in its M-Pesa account and cash) on the day it started using Kibubu. The Cash Reconciliation report adds it to everything recorded from that day on.</p>
+                        <BaseInput v-model="form.opening_balance" type="number" min="0" step="0.01"
+                            :label="`Opening balance (${form.currency})`" :disabled="!canManage"
+                            :error="errors.opening_balance?.[0]" />
+                        <BaseInput v-model="form.opening_balance_date" type="date"
+                            label="Balance as of (date)" :disabled="!canManage"
+                            :error="errors.opening_balance_date?.[0]" />
+                    </div>
+                </div>
             </div>
         </div>
 
