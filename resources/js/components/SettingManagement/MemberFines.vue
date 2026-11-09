@@ -4,9 +4,32 @@
             <PaymentToolbar title="Member fines" :groups="groups" :group-id="groupId" :statuses="['pending', 'partial', 'paid', 'waived']"
                 :can-manage="canManage" add-label="Fine" @group="onGroup" @search="onSearch" @status="onStatus" @add="openAdd" />
         </div>
-        <div v-if="canManage" class="card-body py-2 border-bottom d-flex justify-content-between align-items-center">
-            <span class="small text-muted">Have fines on paper or in a spreadsheet? Import them in one file.</span>
-            <button @click="importModal = true" class="btn btn-outline-primary btn-sm"><i class="bi bi-upload"></i> Import</button>
+        <div class="card-body py-2 border-bottom d-flex justify-content-between align-items-center">
+            <span v-if="canManage" class="small text-muted">Have fines on paper or in a spreadsheet? Import them in one file.</span>
+            <span v-else></span>
+            <div class="btn-group btn-group-sm">
+                <a :href="exportUrl" class="btn btn-outline-secondary" title="Download each member's total fine, paid fine and balance, using the current filters"><i class="bi bi-download"></i> Export</a>
+                <button v-if="canManage" @click="importModal = true" class="btn btn-outline-primary"><i class="bi bi-upload"></i> Import</button>
+            </div>
+        </div>
+        <div class="card-body border-bottom pb-1">
+            <ListFilters :model-value="filters" :members="filterOptions.members" :cycles="filterOptions.cycles" :fine-types="filterOptions.fine_types" @update:modelValue="onFilters" />
+        </div>
+        <div v-if="totals" class="card-body border-bottom">
+            <div class="row text-center">
+                <div class="col-4">
+                    <div class="text-muted small">Total fines</div>
+                    <div class="fs-4 fw-semibold">{{ totals.count.toLocaleString() }}</div>
+                </div>
+                <div class="col-4">
+                    <div class="text-muted small">Total amount</div>
+                    <div class="fs-4 fw-semibold">{{ money(totals.amount) }}</div>
+                </div>
+                <div class="col-4">
+                    <div class="text-muted small">Total balance</div>
+                    <div class="fs-4 fw-semibold">{{ money(totals.balance) }}</div>
+                </div>
+            </div>
         </div>
         <div class="card-body p-0">
             <table class="table table-striped mb-0 align-middle">
@@ -96,6 +119,12 @@ export default {
                 { name: "due_date", required: false, description: "When the fine is due. It cannot be before the fine date.", example: "2026-03-05" },
             ],
         };
+    },
+
+    computed: {
+        exportUrl() {
+            return `${this.endpoint}/export?${new URLSearchParams({ q: this.search, status: this.status, group_id: this.groupId, ...this.activeFilters })}`;
+        },
     },
 
     methods: {

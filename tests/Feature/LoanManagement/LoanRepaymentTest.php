@@ -118,3 +118,15 @@ test('the overdue command flags late installments and applies the group penalty 
         ->and((float) $loan->penalty_amount)->toBe(2000.0)
         ->and((float) $loan->outstanding_balance)->toBe(117000.0);
 });
+
+test('the repayment list carries the total loan, total repaid and balance', function () {
+    $loanId = activeLoan($this);
+    $id = $this->actingAs($this->chair)->postJson(route('loan-repayments.store'), repaymentPayload($this, $loanId, 40000))->json('data.id');
+    $this->actingAs($this->chair)->patchJson(route('loan-repayments.approve', $id))->assertOk();
+
+    $this->actingAs($this->chair)->getJson(route('loan-repayments.index', ['group_id' => $this->group->id]))
+        ->assertJsonPath('totals.loan', 115000)->assertJsonPath('totals.repaid', 40000)->assertJsonPath('totals.balance', 75000);
+
+    $this->actingAs($this->friend)->getJson(route('loan-repayments.index', ['group_id' => $this->group->id]))
+        ->assertJsonPath('totals.loan', 0)->assertJsonPath('totals.balance', 0);
+});

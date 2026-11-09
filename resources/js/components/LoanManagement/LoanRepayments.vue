@@ -8,6 +8,22 @@
             <span class="small text-muted">Past repayments on paper or in a spreadsheet? Import them against the loan numbers.</span>
             <button @click="importModal = true" class="btn btn-outline-primary btn-sm"><i class="bi bi-upload"></i> Import</button>
         </div>
+        <div v-if="totals" class="card-body border-bottom">
+            <div class="row text-center">
+                <div class="col-4">
+                    <div class="text-muted small">Total loan</div>
+                    <div class="fs-4 fw-semibold">{{ money(totals.loan) }}</div>
+                </div>
+                <div class="col-4">
+                    <div class="text-muted small">Total repayment</div>
+                    <div class="fs-4 fw-semibold">{{ money(totals.repaid) }}</div>
+                </div>
+                <div class="col-4">
+                    <div class="text-muted small">Balance</div>
+                    <div class="fs-4 fw-semibold">{{ money(totals.balance) }}</div>
+                </div>
+            </div>
+        </div>
         <div class="card-body p-0">
             <table class="table table-striped mb-0 align-middle">
                 <thead>

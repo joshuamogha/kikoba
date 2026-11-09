@@ -97,3 +97,43 @@ test('members see only their own fines and managers see all', function () {
         ->assertJsonCount(2, 'data')->assertJsonCount(1, 'options.fine_types');
     $this->actingAs($this->outsider)->getJson(route('member-fines.index', ['group_id' => $this->group->id]))->assertForbidden();
 });
+
+test('fines can be filtered by fine type and financial cycle, with totals for the matching fines', function () {
+    $late = $this->group->fineTypes()->create(['name' => 'Late', 'code' => 'LATE', 'default_amount' => 500, 'calculation_type' => 'fixed', 'status' => 'active']);
+    $this->actingAs($this->chair)->postJson(route('member-fines.store'), fineIssuePayload($this, ['amount' => 2000]))->assertCreated();
+    $this->actingAs($this->chair)->postJson(route('member-fines.store'), fineIssuePayload($this, ['fine_type_id' => $late->id, 'amount' => 500]))->assertCreated();
+    $cycleId = $this->group->memberFines()->value('financial_cycle_id');
+    $params = ['group_id' => $this->group->id];
+
+    $this->actingAs($this->chair)->getJson(route('member-fines.index', $params))
+        ->assertJsonPath('totals.count', 2)->assertJsonPath('totals.amount', 2500)->assertJsonPath('totals.balance', 2500)
+        ->assertJsonCount(2, 'filters.fine_types')->assertJsonCount(1, 'filters.cycles');
+
+    $this->actingAs($this->chair)->getJson(route('member-fines.index', [...$params, 'fine_type_id' => $late->id]))
+        ->assertJsonCount(1, 'data')->assertJsonPath('totals.amount', 500);
+
+    $this->actingAs($this->chair)->getJson(route('member-fines.index', [...$params, 'financial_cycle_id' => $cycleId]))->assertJsonCount(2, 'data');
+    $this->actingAs($this->chair)->getJson(route('member-fines.index', [...$params, 'financial_cycle_id' => $cycleId + 99]))
+        ->assertJsonCount(0, 'data')->assertJsonPath('totals.count', 0);
+});
+
+test('the export lists each member with total, paid and balance and ends with the overall totals', function () {
+    $this->friendMember = addMemberTo($this->group, User::factory()->create());
+    $payment = ['payment_method_id' => $this->group->paymentMethods()->value('id'), 'payment_date' => now()->toDateString()];
+    $first = $this->actingAs($this->chair)->postJson(route('member-fines.store'), fineIssuePayload($this, ['amount' => 2000]))->json('data.id');
+    $this->actingAs($this->chair)->postJson(route('member-fines.store'), fineIssuePayload($this, ['amount' => 1000]))->assertCreated();
+    $this->actingAs($this->chair)->postJson(route('member-fines.store'), fineIssuePayload($this, ['group_member_id' => $this->friendMember->id, 'amount' => 500]))->assertCreated();
+    $this->actingAs($this->chair)->postJson(route('member-fines.pay', $first), [...$payment, 'amount' => 500])->assertOk();
+
+    $csv = $this->actingAs($this->chair)->get(route('member-fines.export', ['group_id' => $this->group->id]))->assertOk()->streamedContent();
+    $lines = array_values(array_filter(explode("\n", str_replace(["\r", "\xEF\xBB\xBF"], '', $csv))));
+
+    expect($lines[0])->toBe('Name,"Total fine","Paid fine",Balance')
+        ->and($lines)->toContain('"'.$this->plainMember->name.'",3000.00,500.00,2500.00')
+        ->and($lines)->toContain('"'.$this->friendMember->name.'",500.00,0.00,500.00')
+        ->and(end($lines))->toBe('"Overall total",3500.00,500.00,3000.00');
+
+    $own = $this->actingAs($this->plain)->get(route('member-fines.export', ['group_id' => $this->group->id]))->streamedContent();
+
+    expect($own)->toContain('"Overall total",3000.00,500.00,2500.00')->not->toContain($this->friendMember->name);
+});

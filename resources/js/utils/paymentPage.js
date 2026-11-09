@@ -40,7 +40,7 @@ export default {
             status: "",
             filters: {},
             totals: null,
-            filterOptions: { members: [], cycles: [], funds: [] },
+            filterOptions: { members: [], cycles: [], funds: [], fine_types: [] },
             canManage: false,
             options: {},
             formModal: false,
@@ -79,7 +79,7 @@ export default {
                     this.canManage = response.data.can_manage ?? false;
                     this.options = response.data.options ?? {};
                     this.totals = response.data.totals ?? null;
-                    this.filterOptions = { members: [], cycles: [], funds: [], ...(response.data.filters ?? {}) };
+                    this.filterOptions = { members: [], cycles: [], funds: [], fine_types: [], ...(response.data.filters ?? {}) };
                     this.loaded = true;
                 })
                 .catch(this.handleError);

@@ -15,6 +15,14 @@
                 </select>
             </div>
         </div>
+        <div v-if="fineTypes.length" class="col-md-3">
+            <div class="mb-2">
+                <select :value="modelValue.fine_type_id ?? ''" class="form-select" aria-label="Fine type" @change="update('fine_type_id', $event.target.value)">
+                    <option value="">All fine types</option>
+                    <option v-for="type in fineTypes" :key="type.value" :value="type.value">{{ type.label }}</option>
+                </select>
+            </div>
+        </div>
         <div v-if="cycles.length" class="col-md-3">
             <div class="mb-2">
                 <select :value="modelValue.financial_cycle_id ?? ''" class="form-select" aria-label="Financial cycle" @change="update('financial_cycle_id', $event.target.value)">
@@ -43,6 +51,7 @@ export default {
         members: { type: Array, default: () => [] },
         cycles: { type: Array, default: () => [] },
         funds: { type: Array, default: () => [] },
+        fineTypes: { type: Array, default: () => [] },
     },
 
     emits: ["update:modelValue"],

@@ -52,8 +52,16 @@ class LoanRepaymentController extends Controller
             ->paginate(15)
             ->withQueryString();
 
+        $loans = $group->loans()
+            ->when(! $canManage, fn ($query) => $query->whereHas('groupMember', fn ($member) => $member->where('user_id', $request->user()->id)));
+
         return LoanRepaymentResource::collection($rows)->additional([
             'can_manage' => $canManage,
+            'totals' => [
+                'loan' => (float) (clone $loans)->sum('total_payable'),
+                'repaid' => (float) (clone $loans)->sum('amount_paid'),
+                'balance' => (float) (clone $loans)->sum('outstanding_balance'),
+            ],
             'options' => $canManage ? [
                 'loans' => $group->loans()->whereIn('status', ['active', 'overdue'])->with('groupMember:id,name')->orderBy('id')->get()
                     ->map(fn ($loan) => ['value' => $loan->id, 'label' => "{$loan->loan_number} - {$loan->groupMember->name} (owes ".number_format((float) $loan->outstanding_balance, 2).')', 'balance' => (float) $loan->outstanding_balance, 'disbursed' => $loan->disbursement_date->toDateString()])->all(),

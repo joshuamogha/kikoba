@@ -155,6 +155,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('fine-payments', [FinePaymentController::class, 'index'])->name('fine-payments.index');
     Route::get('member-fines/import/template', [MemberFineImportController::class, 'template'])->name('member-fines.template');
     Route::post('member-fines/import', [MemberFineImportController::class, 'import'])->name('member-fines.import');
+    Route::get('member-fines/export', [MemberFineController::class, 'export'])->name('member-fines.export');
     Route::resource('member-fines', MemberFineController::class)->only(['index', 'store']);
     Route::patch('member-fines/{member_fine}/waive', [MemberFineController::class, 'waive'])->name('member-fines.waive');
     Route::post('member-fines/{member_fine}/payments', [MemberFineController::class, 'pay'])->name('member-fines.pay');
