@@ -175,29 +175,51 @@ test('the Reports menu has the four reports and each page opens', function () {
     }
 });
 
-test('the cash reconciliation adds up money in and out, and only leaders and the treasurer can see it', function () {
+test('the cash reconciliation lists the figures like the group summary, with deposits covering every contribution', function () {
     $report = $this->actingAs($this->chair)->getJson(route('reports.cash-reconciliation', ['group_id' => $this->group->id]))->assertOk();
-    $summary = $report->json('data.summary');
+    $rows = collect($report->json('data.rows'))->pluck('value', 'label');
 
-    // Shares 30,000 + savings 20,000 = deposits; social 5,000; repaid 40,000 of a 100,000 loan.
-    expect($summary['deposits'])->toEqual(50000)
-        ->and($summary['social_funds'])->toEqual(5000)
-        ->and($summary['withdrawals'])->toEqual(100000)
-        ->and($summary['repayments'] + $summary['penalties_paid'])->toEqual(40000)
-        ->and($report->json('data.balance'))->toEqual(-5000);
+    // Contributions: shares 30,000 + savings 20,000 + social 5,000. The social fund is part of the deposits.
+    expect($rows['Group Name'])->toBe($this->group->name)
+        ->and($rows['Currency'])->toBe($this->group->currency)
+        ->and($rows['Deposits'])->toEqual(55000)
+        ->and($rows['Social Funds'])->toEqual(5000)
+        ->and($rows['Withdraws'])->toEqual(100000)
+        ->and($rows['Repayment'] + $rows['Penalty Paid'])->toEqual(40000)
+        ->and($rows['Insurance'])->toEqual(0)
+        ->and($rows['Dividends'])->toEqual(0)
+        ->and($rows['Other'])->toEqual(0)
+        ->and($rows['Expected Balance'])->toEqual(-5000);
 
     $this->actingAs($this->chair)->getJson(route('reports.cash-reconciliation', ['group_id' => $this->group->id, 'from' => '2026-04-01', 'to' => '2026-04-30']))
-        ->assertJsonPath('data.summary.deposits', 0)->assertJsonPath('data.summary.withdrawals', 0)->assertJsonPath('data.summary.money_in', 40000);
+        ->assertJsonPath('data.balance', 40000);
 
-    $methodId = $this->group->paymentMethods()->value('id');
-    $this->actingAs($this->chair)->getJson(route('reports.cash-reconciliation', ['group_id' => $this->group->id, 'payment_method_id' => $methodId]))
-        ->assertJsonPath('data.summary.withdrawals', 0);
+    $this->actingAs($this->chair)->getJson(route('reports.cash-reconciliation', ['group_id' => $this->group->id, 'payment_method_id' => $this->group->paymentMethods()->value('id')]))
+        ->assertJsonPath('data.opening.applies', false);
 
     expect($this->actingAs($this->chair)->get(route('reports.cash-reconciliation', ['group_id' => $this->group->id, 'format' => 'csv']))->assertOk()->streamedContent())
-        ->toContain('Cash reconciliation')->toContain('Expected balance');
+        ->toContain('Cash reconciliation')->toContain('"Social Funds",:,5000')->toContain('Expected Balance');
 
     $this->actingAs($this->plain)->getJson(route('reports.cash-reconciliation', ['group_id' => $this->group->id]))->assertForbidden();
     $this->actingAs($this->outsider)->getJson(route('reports.cash-reconciliation', ['group_id' => $this->group->id]))->assertForbidden();
+});
+
+test('insurance, membership fee and other contributions are told apart by fund, and each is part of the deposits', function () {
+    $insurance = createFundFor($this->group, ['name' => 'Insurance', 'code' => 'INS']);
+    $membership = createFundFor($this->group, ['name' => 'Membership Fee', 'code' => 'MEM']);
+    $general = createFundFor($this->group, ['name' => 'General', 'code' => 'GEN']);
+
+    foreach ([[$insurance, 1000], [$membership, 2000], [$general, 3000]] as [$fund, $amount]) {
+        $id = $this->actingAs($this->chair)->postJson(route('contributions.store'), [
+            'group_id' => $this->group->id, 'group_member_id' => $this->plainMember->id, 'payment_method_id' => $this->group->paymentMethods()->value('id'),
+            'contribution_date' => '2026-05-10', 'period' => '2026-05', 'items' => [['group_fund_id' => $fund->id, 'amount' => $amount]],
+        ])->assertCreated()->json('data.id');
+        $this->actingAs($this->chair)->patchJson(route('contributions.approve', $id))->assertOk();
+    }
+
+    $rows = collect($this->actingAs($this->chair)->getJson(route('reports.cash-reconciliation', ['group_id' => $this->group->id, 'from' => '2026-05-01', 'to' => '2026-05-31']))->json('data.rows'))->pluck('value', 'label');
+
+    expect($rows['Deposits'])->toEqual(6000)->and($rows['Insurance'])->toEqual(1000)->and($rows['Membership Fee'])->toEqual(2000)->and($rows['Other Contribution'])->toEqual(3000);
 });
 
 test('the opening balance starts the expected balance, ignores earlier movements and is carried forward past a From date', function () {
@@ -206,12 +228,12 @@ test('the opening balance starts the expected balance, ignores earlier movements
 
     // The December 2025 share (10,000) is before the opening date, so it is already part of the opening balance.
     $this->actingAs($this->chair)->getJson($url())
-        ->assertJsonPath('data.opening.brought_forward', 100000)->assertJsonPath('data.summary.deposits', 40000)->assertJsonPath('data.balance', 85000);
+        ->assertJsonPath('data.opening.brought_forward', 100000)->assertJsonPath('data.balance', 85000);
 
     $this->actingAs($this->chair)->getJson($url(['from' => '2025-01-01']))->assertJsonPath('data.balance', 85000);
 
     $this->actingAs($this->chair)->getJson($url(['from' => '2026-04-01']))
-        ->assertJsonPath('data.opening.brought_forward', 30000)->assertJsonPath('data.summary.withdrawals', 0)->assertJsonPath('data.balance', 85000);
+        ->assertJsonPath('data.opening.brought_forward', 30000)->assertJsonPath('data.balance', 85000);
 
     $this->actingAs($this->chair)->getJson($url(['payment_method_id' => $this->group->paymentMethods()->value('id')]))
         ->assertJsonPath('data.opening.applies', false)->assertJsonPath('data.opening.brought_forward', 0);

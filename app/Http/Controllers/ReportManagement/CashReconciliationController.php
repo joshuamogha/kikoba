@@ -5,6 +5,7 @@ namespace App\Http\Controllers\ReportManagement;
 use App\Actions\ReportManagement\BuildCashReconciliation;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\ReportManagement\Concerns\ScopesReports;
+use App\Models\UserManagement\Group;
 use App\Support\ReportCsv;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -42,34 +43,51 @@ class CashReconciliationController extends Controller
 
         $report = $build->handle($group, $from, $to, $method?->id);
 
+        $rows = $this->rows($group, $report);
+
         if ($request->query('format') === 'csv') {
-            $rows = [
+            return ReportCsv::download('cash-reconciliation-'.str($group->name)->slug().'.csv', [
                 [$group->name, 'Cash reconciliation', ($from ?? 'start').' to '.($to ?? 'today'), $method?->name ?? 'All payment methods', 'Printed', now()->toDateString()],
                 [],
-            ];
-
-            foreach ($report['sections'] as $section) {
-                $rows[] = [$section['title']];
-
-                foreach ($section['rows'] as $row) {
-                    $rows[] = ['', $row['label'], $row['amount']];
-                }
-
-                $rows[] = ['', 'Total', $section['total']];
-                $rows[] = [];
-            }
-
-            $rows[] = ['Balance brought forward'.($report['opening']['as_of'] ? ' (opening balance as of '.$report['opening']['as_of'].')' : ''), '', $report['opening']['brought_forward']];
-            $rows[] = ['Total money in', '', $report['summary']['money_in']];
-            $rows[] = ['Withdrawals', '', $report['summary']['withdrawals']];
-            $rows[] = ['Expected balance', '', $report['balance']];
-
-            return ReportCsv::download('cash-reconciliation-'.str($group->name)->slug().'.csv', $rows);
+                ...array_map(fn (array $row) => [$row['label'], ':', $row['value']], $rows),
+            ]);
         }
 
         return response()->json([
-            'data' => ['group' => ['name' => $group->name, 'currency' => $group->currency], ...$report],
+            'data' => ['group' => ['name' => $group->name, 'currency' => $group->currency], 'rows' => $rows, 'opening' => $report['opening'], 'balance' => $report['balance']],
             'payment_methods' => $this->options($group->paymentMethods()->orderBy('display_order')->orderBy('id')),
         ]);
+    }
+
+    /**
+     * The report as label / value lines, in the order they are shown and exported.
+     *
+     * @param  array{figures: array<string, float>, money_in: float, opening: array{brought_forward: float, as_of: string|null}, balance: float}  $report
+     * @return array<int, array{label: string, value: string|float, money: bool}>
+     */
+    private function rows(Group $group, array $report): array
+    {
+        $figures = $report['figures'];
+        $money = fn (string $label, float $value) => ['label' => $label, 'value' => $value, 'money' => true];
+
+        return [
+            ['label' => 'Group Name', 'value' => $group->name, 'money' => false],
+            ['label' => 'Group ID', 'value' => $group->registration_number ?? (string) $group->id, 'money' => false],
+            ['label' => 'Status', 'value' => strtoupper($group->status), 'money' => false],
+            $money('Deposits', $figures['deposits']),
+            $money('Withdraws', $figures['withdrawals']),
+            $money('Penalties', $figures['penalties']),
+            $money('Penalty Paid', $figures['penalties_paid']),
+            $money('Social Funds', $figures['social_funds']),
+            $money('Repayment', $figures['repayments']),
+            $money('Insurance', $figures['insurance']),
+            $money('Other Contribution', $figures['other_contribution']),
+            $money('Membership Fee', $figures['membership_fee']),
+            $money('Dividends', $figures['dividends']),
+            $money('Other', $figures['other']),
+            ['label' => 'Currency', 'value' => $group->currency, 'money' => false],
+            $money('Balance Brought Forward'.($report['opening']['as_of'] ? " (opening balance as of {$report['opening']['as_of']})" : ''), $report['opening']['brought_forward']),
+            $money('Expected Balance', $report['balance']),
+        ];
     }
 }

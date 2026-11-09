@@ -7,21 +7,24 @@ use App\Models\LoanManagement\LoanRepayment;
 use App\Models\PaymentManagement\ContributionItem;
 use App\Models\PaymentManagement\FinePayment;
 use App\Models\PaymentManagement\GroupFund;
+use App\Models\ShareManagement\ShareOutPayment;
 use App\Models\UserManagement\Group;
 use Illuminate\Support\Carbon;
 
 class BuildCashReconciliation
 {
     /**
-     * Every approved or paid movement of money in a period, to compare the expected balance with the mobile money account: deposits,
-     * social funds, loan repayments, penalties paid and income come in; loan disbursements and paid expenses go out. Penalties
-     * charged (fines issued and late penalties on loan installments) are shown separately because they are not cash yet.
+     * Every approved or paid movement of money in a period, to compare the expected balance with the mobile money account.
+     * Deposits are all contributions (savings, shares and every other fund); social funds, insurance, membership fees and other
+     * contributions are shown as parts of deposits. Loan repayments (principal and interest), penalties paid and other income also
+     * come in; loan disbursements, paid expenses and dividends (share-out payments) go out. Penalties charged (fines issued and late
+     * penalties on loan installments) are shown for reference because they are not cash until paid.
      *
      * Loans have no payment method, so loan disbursements are left out when a payment method is chosen; the group's opening balance
      * is a single figure, so it is left out then too. With an opening balance, only movements from its date on are counted, and a From
      * date after it carries the movements in between into the balance brought forward.
      *
-     * @return array{sections: array<int, array{key: string, title: string, rows: array<int, array{label: string, amount: float}>, total: float}>, summary: array<string, float>, opening: array{amount: float, as_of: string|null, brought_forward: float, applies: bool}, balance: float}
+     * @return array{figures: array<string, float>, money_in: float, opening: array{amount: float, as_of: string|null, brought_forward: float, applies: bool}, balance: float}
      */
     public function handle(Group $group, ?string $from, ?string $to, ?int $paymentMethodId): array
     {
@@ -51,7 +54,7 @@ class BuildCashReconciliation
     /**
      * The movements of money between two dates, without any opening balance. Its balance is money in minus withdrawals.
      *
-     * @return array{sections: array<int, array{key: string, title: string, rows: array<int, array{label: string, amount: float}>, total: float}>, summary: array<string, float>, balance: float}
+     * @return array{figures: array<string, float>, money_in: float, balance: float}
      */
     private function movements(Group $group, ?string $from, ?string $to, ?int $paymentMethodId): array
     {
@@ -72,17 +75,17 @@ class BuildCashReconciliation
             ->selectRaw('contribution_items.group_fund_id as fund_id, sum(contribution_items.amount) as total')
             ->get();
 
-        $deposits = [];
-        $social = [];
+        $contributions = ['all' => 0.0, 'social' => 0.0, 'insurance' => 0.0, 'membership' => 0.0, 'other' => 0.0];
 
         foreach ($items as $item) {
             $fund = $funds[$item->fund_id];
-            $row = ['label' => $fund->name, 'amount' => round((float) $item->total, 2)];
+            $amount = (float) $item->total;
+            $contributions['all'] += $amount;
 
-            if ($fund->code === 'SOC' || $fund->fundType?->code === 'SOC') {
-                $social[] = $row;
-            } else {
-                $deposits[] = $row;
+            $kind = $this->fundKind($fund);
+
+            if ($kind !== null) {
+                $contributions[$kind] += $amount;
             }
         }
 
@@ -103,55 +106,54 @@ class BuildCashReconciliation
         $finesIssued = (float) $between($group->memberFines()->where('status', '!=', 'waived'), 'fine_date')->sum('amount');
         $loanPenalties = (float) $between(LoanInstallment::query()->whereHas('loan', fn ($loan) => $loan->where('group_id', $group->id)), 'due_date')->sum('penalty_due');
 
-        $sections = [
-            $this->section('deposits', 'Deposits (savings, shares and other funds)', $deposits),
-            $this->section('social', 'Social funds', $social),
-            $this->section('repayments', 'Loan repayments (without penalties)', [
-                ['label' => 'Principal', 'amount' => (float) $loanPaid->principal],
-                ['label' => 'Interest', 'amount' => (float) $loanPaid->interest],
-            ]),
-            $this->section('penalties_paid', 'Penalties paid', [
-                ['label' => 'Loan late penalties', 'amount' => (float) $loanPaid->penalty],
-                ['label' => 'Member fines', 'amount' => $finesPaid],
-            ]),
-            $this->section('income', 'Other income', [['label' => 'Group income', 'amount' => $income]]),
-            $this->section('withdrawals', 'Withdrawals', [
-                ['label' => 'Loan disbursements', 'amount' => $disbursed],
-                ['label' => 'Expenses paid', 'amount' => $expenses],
-            ]),
-            $this->section('penalties_charged', 'Penalties charged (not cash until paid)', [
-                ['label' => 'Loan late penalties', 'amount' => $loanPenalties],
-                ['label' => 'Member fines issued', 'amount' => $finesIssued],
-            ]),
+        $dividends = (float) $between($byMethod(ShareOutPayment::query()
+            ->whereHas('memberShareOut.shareOut', fn ($shareOut) => $shareOut->where('group_id', $group->id))
+            ->where('status', ShareOutPayment::PAID)), 'payment_date')->sum('amount');
+
+        $repaid = (float) $loanPaid->principal + (float) $loanPaid->interest;
+        $penaltiesPaid = (float) $loanPaid->penalty + $finesPaid;
+        $withdrawals = $disbursed + $expenses + $dividends;
+        $moneyIn = $contributions['all'] + $repaid + $penaltiesPaid + $income;
+
+        $figures = [
+            'deposits' => $contributions['all'],
+            'withdrawals' => $withdrawals,
+            'penalties' => $finesIssued + $loanPenalties,
+            'penalties_paid' => $penaltiesPaid,
+            'social_funds' => $contributions['social'],
+            'repayments' => $repaid,
+            'insurance' => $contributions['insurance'],
+            'other_contribution' => $contributions['other'],
+            'membership_fee' => $contributions['membership'],
+            'dividends' => $dividends,
+            'other' => $income,
         ];
 
-        $totals = collect($sections)->pluck('total', 'key');
-        $moneyIn = $totals['deposits'] + $totals['social'] + $totals['repayments'] + $totals['penalties_paid'] + $totals['income'];
-
         return [
-            'sections' => $sections,
-            'summary' => [
-                'deposits' => $totals['deposits'],
-                'withdrawals' => $totals['withdrawals'],
-                'penalties' => $totals['penalties_charged'],
-                'penalties_paid' => $totals['penalties_paid'],
-                'social_funds' => $totals['social'],
-                'repayments' => $totals['repayments'],
-                'income' => $totals['income'],
-                'money_in' => round($moneyIn, 2),
-            ],
-            'balance' => round($moneyIn - $totals['withdrawals'], 2),
+            'figures' => array_map(fn (float $amount) => round($amount, 2), $figures),
+            'money_in' => round($moneyIn, 2),
+            'balance' => round($moneyIn - $withdrawals, 2),
         ];
     }
 
     /**
-     * @param  array<int, array{label: string, amount: float}>  $rows
-     * @return array{key: string, title: string, rows: array<int, array{label: string, amount: float}>, total: float}
+     * Which kind of contribution a fund collects, when it is one the reconciliation lists on its own line: the Social Fund,
+     * insurance, membership fees, or (null for savings and shares) any other fund as "other".
+     *
+     * @return 'social'|'insurance'|'membership'|'other'|null
      */
-    private function section(string $key, string $title, array $rows): array
+    private function fundKind(GroupFund $fund): ?string
     {
-        $rows = array_map(fn (array $row) => ['label' => $row['label'], 'amount' => round($row['amount'], 2)], $rows);
+        $code = strtoupper((string) $fund->code);
+        $typeCode = strtoupper((string) $fund->fundType?->code);
+        $name = mb_strtolower($fund->name);
 
-        return ['key' => $key, 'title' => $title, 'rows' => $rows, 'total' => round(array_sum(array_column($rows, 'amount')), 2)];
+        return match (true) {
+            $code === 'SOC' || $typeCode === 'SOC' => 'social',
+            $code === 'INS' || $typeCode === 'INS' || str_contains($name, 'insurance') || str_contains($name, 'bima') => 'insurance',
+            $code === 'MEM' || $typeCode === 'MEM' || str_contains($name, 'membership') || str_contains($name, 'uanachama') => 'membership',
+            in_array($code, ['SAV', 'SHR'], true) || in_array($typeCode, ['SAV', 'SHR'], true) => null,
+            default => 'other',
+        };
     }
 }
