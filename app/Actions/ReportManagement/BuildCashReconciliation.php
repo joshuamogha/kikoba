@@ -89,6 +89,13 @@ class BuildCashReconciliation
             }
         }
 
+        // Share purchases recorded before purchases created contributions have no contribution, so they are added here. Linked ones
+        // are already counted above. A purchase has no payment method of its own, so these are left out when one is chosen.
+        if ($paymentMethodId === null) {
+            $contributions['all'] += (float) $between($group->memberShareTransactions()
+                ->where('transaction_type', 'purchase')->where('status', 'approved')->whereNull('contribution_id'), 'transaction_date')->sum('total_amount');
+        }
+
         $repayments = $between($byMethod(LoanRepayment::query()
             ->whereHas('loan', fn ($loan) => $loan->where('group_id', $group->id))
             ->where('status', 'approved')), 'payment_date');

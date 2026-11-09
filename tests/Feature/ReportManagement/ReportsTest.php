@@ -255,3 +255,21 @@ test('deposits are all contributions plus the penalties paid, and penalties paid
     expect($rows['Deposits'])->toEqual(55500)->and($rows['Penalty Paid'])->toEqual(500)->and($rows['Penalties'])->toEqual(2000)
         ->and($rows['Expected Balance'])->toEqual(-4500);
 });
+
+test('share purchases without a contribution still count as deposits, but linked ones are not counted twice', function () {
+    $purchase = $this->group->memberShareTransactions()->where('transaction_type', 'purchase')->whereNotNull('contribution_id')->orderBy('id')->firstOrFail();
+    $contribution = $purchase->contribution;
+
+    $purchase->update(['contribution_id' => null]);
+    $contribution->contributionItems()->delete();
+    $contribution->delete();
+
+    $rows = collect($this->actingAs($this->chair)->getJson(route('reports.cash-reconciliation', ['group_id' => $this->group->id]))->json('data.rows'))->pluck('value', 'label');
+
+    expect($rows['Deposits'])->toEqual(55000);
+
+    $methodId = $this->group->paymentMethods()->value('id');
+    $withMethod = collect($this->actingAs($this->chair)->getJson(route('reports.cash-reconciliation', ['group_id' => $this->group->id, 'payment_method_id' => $methodId]))->json('data.rows'))->pluck('value', 'label');
+
+    expect($withMethod['Deposits'])->toEqual((float) $this->group->contributions()->where('status', 'approved')->where('payment_method_id', $methodId)->sum('total_amount'));
+});
