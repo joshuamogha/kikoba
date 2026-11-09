@@ -15,10 +15,11 @@ class BuildCashReconciliation
 {
     /**
      * Every approved or paid movement of money in a period, to compare the expected balance with the mobile money account.
-     * Deposits are all contributions (savings, shares and every other fund) plus the penalties paid (member fines and loan late
-     * penalties); social funds, insurance, membership fees, other contributions and penalty paid are shown as parts of deposits.
-     * Loan repayments (principal and interest) and other income also come in; loan disbursements and paid expenses are the withdrawals, and dividends (share-out payments) go out as their own line. Penalties charged (fines issued and late
-     * penalties on loan installments) are shown for reference because they are not cash until paid.
+     * Deposits are all contributions (savings, shares, the social fund and every other fund) plus the total penalties charged
+     * (member fines issued and late penalties on loan installments). Social funds, insurance, membership fees, other contributions
+     * and penalty paid are shown as parts of the same picture. The expected balance only counts cash: contributions, penalties
+     * actually paid, loan repayments (principal and interest) and other income come in; loan disbursements and paid expenses are the
+     * withdrawals, and dividends (share-out payments) go out as their own line.
      *
      * Loans have no payment method, so loan disbursements are left out when a payment method is chosen; the group's opening balance
      * is a single figure, so it is left out then too. With an opening balance, only movements from its date on are counted, and a From
@@ -120,13 +121,14 @@ class BuildCashReconciliation
         $repaid = (float) $loanPaid->principal + (float) $loanPaid->interest;
         $penaltiesPaid = (float) $loanPaid->penalty + $finesPaid;
         $withdrawals = $disbursed + $expenses;
-        $deposits = $contributions['all'] + $penaltiesPaid;
-        $moneyIn = $deposits + $repaid + $income;
+        $penaltiesCharged = $finesIssued + $loanPenalties;
+        $deposits = $contributions['all'] + $penaltiesCharged;
+        $moneyIn = $contributions['all'] + $penaltiesPaid + $repaid + $income;
 
         $figures = [
             'deposits' => $deposits,
             'withdrawals' => $withdrawals,
-            'penalties' => $finesIssued + $loanPenalties,
+            'penalties' => $penaltiesCharged,
             'penalties_paid' => $penaltiesPaid,
             'social_funds' => $contributions['social'],
             'repayments' => $repaid,
@@ -157,7 +159,7 @@ class BuildCashReconciliation
         $name = mb_strtolower($fund->name);
 
         return match (true) {
-            $code === 'SOC' || $typeCode === 'SOC' => 'social',
+            $code === 'SOC' || $typeCode === 'SOC' || str_contains($name, 'jamii') || str_contains($name, 'social') => 'social',
             $code === 'INS' || $typeCode === 'INS' || str_contains($name, 'insurance') || str_contains($name, 'bima') => 'insurance',
             $code === 'MEM' || $typeCode === 'MEM' || str_contains($name, 'membership') || str_contains($name, 'uanachama') => 'membership',
             in_array($code, ['SAV', 'SHR'], true) || in_array($typeCode, ['SAV', 'SHR'], true) => null,
