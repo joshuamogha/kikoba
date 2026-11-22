@@ -5,10 +5,11 @@ namespace App\Http\Controllers\ReportManagement;
 use App\Actions\ReportManagement\BuildMemberStatement;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\ReportManagement\Concerns\ScopesReports;
-use App\Support\ReportCsv;
+use App\Support\TableExport;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class MemberStatementController extends Controller
@@ -16,12 +17,12 @@ class MemberStatementController extends Controller
     use ScopesReports;
 
     /**
-     * The page, or one member's statement for a financial cycle as JSON (or CSV with format=csv). Leaders and the Treasurer can
+     * The page, or one member's statement for a financial cycle as JSON (or a file with format=xlsx, pdf or csv and the chosen sections and months). Leaders and the Treasurer can
      * choose any member; everyone else gets their own statement.
      */
-    public function index(Request $request, BuildMemberStatement $build): View|JsonResponse|StreamedResponse
+    public function index(Request $request, BuildMemberStatement $build): View|JsonResponse|StreamedResponse|BinaryFileResponse
     {
-        if (! $request->expectsJson() && $request->query('format') !== 'csv') {
+        if (! $request->expectsJson() && ! TableExport::wanted($request)) {
             return view('backend.pages.report-management.member-statement', ['groups' => $this->groupOptions($request->user())]);
         }
 
@@ -37,8 +38,12 @@ class MemberStatementController extends Controller
         $cycle = $this->chosenCycle($request, $group, $cycles);
         $statement = $member !== null && $cycle !== null ? $build->handle($member, $cycle) : null;
 
-        if ($request->query('format') === 'csv' && $statement !== null) {
-            return $this->csv($group->name, $cycle->name, $statement);
+        $options = $statement === null ? [] : $this->options($statement['months']);
+
+        if ($statement !== null && TableExport::wanted($request)) {
+            $choices = TableExport::choices($request, array_column($options, 'value'));
+
+            return $this->file($choices['format'], $choices['columns'], $group->name, $cycle->name, $statement);
         }
 
         return response()->json([
@@ -46,6 +51,7 @@ class MemberStatementController extends Controller
                 'group' => ['name' => $group->name, 'currency' => $group->currency],
                 'cycle' => ['id' => $cycle->id, 'name' => $cycle->name, 'start_date' => $cycle->start_date->toDateString(), 'end_date' => $cycle->end_date->toDateString()],
                 ...$statement,
+                'export_columns' => $options,
             ],
             'cycles' => $this->cycleOptions($cycles),
             'members' => $everyone ? $this->allMemberOptions($group) : [],
@@ -54,35 +60,59 @@ class MemberStatementController extends Controller
     }
 
     /**
-     * The statement as one CSV file with a section for shares, contributions and loans.
+     * What can be chosen for an export: the sections (shares, contributions, loans) and the months shown in the first two.
      *
+     * @param  array<int, array{key: string, label: string}>  $months
+     * @return array<int, array{value: string, label: string}>
+     */
+    private function options(array $months): array
+    {
+        return [
+            ['value' => 'shares', 'label' => 'Section: Shares'],
+            ['value' => 'contributions', 'label' => 'Section: Contributions'],
+            ['value' => 'loans', 'label' => 'Section: Loans'],
+            ...array_map(fn (array $month) => ['value' => "m:{$month['key']}", 'label' => $month['label']], $months),
+        ];
+    }
+
+    /**
+     * The statement as one file with a table for shares, contributions and loans. $chosen keeps only some sections and months
+     * (all of them when null, or when none of that kind is chosen).
+     *
+     * @param  array<int, string>|null  $chosen
      * @param  array<string, mixed>  $statement
      */
-    private function csv(string $groupName, string $cycleName, array $statement): StreamedResponse
+    private function file(string $format, ?array $chosen, string $groupName, string $cycleName, array $statement): BinaryFileResponse|StreamedResponse|View
     {
         $member = $statement['member'];
-        $months = $statement['months'];
-        $rows = [
-            [$groupName, 'Member statement'],
-            ['Member', $member['name'], 'Number', $member['member_number'], 'Phone', $member['phone']],
-            ['Financial cycle', $cycleName, 'Printed', now()->toDateString()],
-            [],
-            ['SHARES'],
-            ['', ...array_column($months, 'label'), 'Total'],
-            ['Shares', ...array_column($statement['shares']['rows'], 'shares'), $statement['shares']['total_shares']],
-            ['Amount', ...array_column($statement['shares']['rows'], 'amount'), $statement['shares']['total_amount']],
-            [],
-            ['CONTRIBUTIONS'],
-            ['Fund', ...array_column($months, 'label'), 'Total'],
-            ...array_map(fn (array $fund) => [$fund['name'], ...array_values($fund['months']), $fund['total']], $statement['contributions']['funds']),
-            ['Total', ...array_values($statement['contributions']['totals']), $statement['contributions']['grand_total']],
-            [],
-            ['LOANS'],
-            ['Loan', 'Product', 'Disbursed', 'Maturity', 'Principal', 'Interest', 'Penalty', 'Total payable', 'Paid', 'Balance', 'Status'],
-            ...array_map(fn (array $loan) => [$loan['loan_number'], $loan['product'], $loan['disbursement_date'], $loan['maturity_date'], $loan['principal'], $loan['interest'], $loan['penalty'], $loan['total_payable'], $loan['paid'], $loan['balance'], $loan['status']], $statement['loans']['rows']),
-            ['Total', '', '', '', $statement['loans']['totals']['principal'], '', '', $statement['loans']['totals']['total_payable'], $statement['loans']['totals']['paid'], $statement['loans']['totals']['balance']],
-        ];
+        $chosen ??= array_column($this->options($statement['months']), 'value');
+        $sections = array_values(array_intersect(['shares', 'contributions', 'loans'], $chosen)) ?: ['shares', 'contributions', 'loans'];
+        $months = array_values(array_filter($statement['months'], fn (array $month) => in_array("m:{$month['key']}", $chosen, true))) ?: $statement['months'];
+        $keep = array_flip(array_column($months, 'key'));
+        $all = array_column($statement['months'], 'key');
+        $pick = fn (array $values) => array_values(array_intersect_key(array_combine($all, array_values($values)), $keep));
+        $headings = ['', ...array_column($months, 'label'), 'Total'];
+        $tables = [];
 
-        return ReportCsv::download('member-statement-'.str($member['name'])->slug().'.csv', $rows);
+        if (in_array('shares', $sections, true)) {
+            $tables[] = ['title' => 'SHARES', 'headings' => $headings, 'totals' => null, 'rows' => [
+                ['Shares', ...$pick(array_column($statement['shares']['rows'], 'shares')), $statement['shares']['total_shares']],
+                ['Amount', ...$pick(array_column($statement['shares']['rows'], 'amount')), $statement['shares']['total_amount']],
+            ]];
+        }
+
+        if (in_array('contributions', $sections, true)) {
+            $tables[] = ['title' => 'CONTRIBUTIONS', 'headings' => ['Fund', ...array_slice($headings, 1)], 'rows' => array_map(fn (array $fund) => [$fund['name'], ...$pick($fund['months']), $fund['total']], $statement['contributions']['funds']),
+                'totals' => ['Total', ...$pick($statement['contributions']['totals']), $statement['contributions']['grand_total']]];
+        }
+
+        if (in_array('loans', $sections, true)) {
+            $loans = $statement['loans'];
+            $tables[] = ['title' => 'LOANS', 'headings' => ['Loan', 'Product', 'Disbursed', 'Maturity', 'Principal', 'Interest', 'Penalty', 'Total payable', 'Paid', 'Balance', 'Status'],
+                'rows' => array_map(fn (array $loan) => [$loan['loan_number'], $loan['product'], $loan['disbursement_date'], $loan['maturity_date'], $loan['principal'], $loan['interest'], $loan['penalty'], $loan['total_payable'], $loan['paid'], $loan['balance'], $loan['status']], $loans['rows']),
+                'totals' => ['Total', '', '', '', $loans['totals']['principal'], '', '', $loans['totals']['total_payable'], $loans['totals']['paid'], $loans['totals']['balance']]];
+        }
+
+        return TableExport::respond($format, 'member-statement-'.str($member['name'])->slug(), $groupName, 'Member statement', "{$member['name']} ({$member['member_number']}) · {$member['phone']} · {$cycleName}", $tables);
     }
 }

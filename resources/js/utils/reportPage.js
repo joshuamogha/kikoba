@@ -2,7 +2,7 @@ import { initialGroup, rememberGroup } from "./paymentPage";
 
 /**
  * Shared behaviour of the report pages: a group select, a financial cycle select (open cycles first), optional member / fund /
- * status filters, the report loaded as JSON from `endpoint`, and Print and CSV buttons that use the same filters.
+ * status filters, the report loaded as JSON from `endpoint`, and an Export window (columns, Excel, PDF, CSV) that uses the same filters.
  */
 export default {
     props: {
@@ -91,10 +91,6 @@ export default {
         onStatus(status) {
             this.status = status;
             this.load();
-        },
-
-        print() {
-            window.print();
         },
 
         money(value) {

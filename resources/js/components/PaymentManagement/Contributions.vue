@@ -4,6 +4,7 @@
             <PaymentToolbar title="Contributions" :groups="groups" :group-id="groupId" :statuses="['pending', 'approved']"
                 :can-manage="canManage" add-label="Contribution" bulk-label="Many members" import-label="Import" @bulk="openBulk" @import="importModal = true" @group="onGroup" @search="onSearch" @status="onStatus" @add="openAdd">
                 <template v-slot:actions>
+                    <button @click="exportModal = true" class="btn btn-success btn-sm"><i class="bi bi-download"></i> Export</button>
                     <button @click="syncShares" class="btn btn-secondary btn-sm" :disabled="saving" title="Record member shares for approved Hisa/Shares contributions that have none"><i class="bi bi-arrow-repeat"></i> Sync shares</button>
                 </template>
             </PaymentToolbar>
@@ -94,6 +95,8 @@
                 <button @click="save" class="btn btn-primary" :disabled="saving">{{ form.id ? "Update" : "Save" }}</button>
             </template>
         </LargeModal>
+
+        <ExportModal v-if="exportModal" title="Export contributions" :columns="options.export_columns ?? []" url="/contributions/export" :params="exportParams" @close="exportModal = false" />
 
         <LargeModal v-if="bulkModal" @close="bulkModal = false">
             <template v-slot:header><h4>Add contributions for many members</h4></template>
@@ -187,6 +190,7 @@ export default {
             deleting: null,
             importModal: false,
             bulkModal: false,
+            exportModal: false,
             bulk: { amounts: {}, references: {} },
             selected: [],
             importColumns: [
@@ -205,6 +209,9 @@ export default {
     },
 
     computed: {
+        exportParams() {
+            return { group_id: this.groupId, q: this.search, status: this.status, ...this.activeFilters };
+        },
         pendingIds() {
             return this.items.filter((item) => item.status === "pending").map((item) => item.id);
         },

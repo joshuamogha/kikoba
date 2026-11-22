@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\PaymentManagement;
 
+use App\Actions\PaymentManagement\BuildContributionExport;
 use App\Actions\PaymentManagement\RecordPaymentTransaction;
 use App\Actions\PaymentManagement\ResolveFinancialCycle;
 use App\Actions\ShareManagement\RecordSharePurchase;
@@ -16,6 +17,8 @@ use App\Models\PaymentManagement\ContributionItem;
 use App\Models\UserManagement\Group;
 use App\Models\UserManagement\User;
 use App\Support\BillingPeriod;
+use App\Support\TableExport;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -23,6 +26,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 use InvalidArgumentException;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ContributionController extends Controller
 {
@@ -47,30 +52,8 @@ class ContributionController extends Controller
         $group = $this->groupFor($request);
         $canManage = $this->canManagePayments($group);
         $request->attributes->set('can_manage', $canManage);
-        $search = trim($request->string('q')->toString());
-        $status = $request->string('status')->toString();
-
-        $memberId = $canManage ? $request->integer('group_member_id') : 0;
-        $cycleId = $request->integer('financial_cycle_id');
+        $query = $this->filteredQuery($request, $group, $canManage)->with(self::RELATIONS);
         $fundId = $request->integer('group_fund_id');
-        $month = BillingPeriod::monthFilter($request->string('month')->toString());
-
-        $query = $group->contributions()
-            ->with(self::RELATIONS)
-            ->when($memberId > 0, fn ($query) => $query->where('group_member_id', $memberId))
-            ->when($cycleId > 0, fn ($query) => $query->where('financial_cycle_id', $cycleId))
-            ->when($fundId > 0, fn ($query) => $query->whereHas('contributionItems', fn ($item) => $item->where('group_fund_id', $fundId)))
-            ->when($month !== null, fn ($query) => $query->where(fn ($inner) => $inner
-                ->whereHas('contributionItems', fn ($item) => $item->whereBetween('period_start', $month))
-                ->orWhere(fn ($noPeriod) => $noPeriod->whereDoesntHave('contributionItems', fn ($item) => $item->whereNotNull('period_start'))
-                    ->whereBetween('contribution_date', $month))))
-            ->when(! $canManage, fn ($query) => $query->whereHas('groupMember', fn ($member) => $member->where('user_id', $request->user()->id)))
-            ->when(in_array($status, ['pending', 'approved'], true), fn ($query) => $query->where('status', $status))
-            ->when($search !== '', fn ($query) => $query->where(fn ($inner) => $inner
-                ->where('contribution_number', 'like', "%{$search}%")
-                ->orWhereHas('groupMember', fn ($member) => $member->where('name', 'like', "%{$search}%")->orWhere('member_number', 'like', "%{$search}%"))))
-            ->orderByDesc('contribution_date')
-            ->orderByDesc('id');
 
         $matching = $query->clone()->reorder()->toBase();
         $totals = [
@@ -95,11 +78,61 @@ class ContributionController extends Controller
                     ->map(fn ($cycle) => ['value' => $cycle->id, 'label' => "{$cycle->name} ({$cycle->start_date->format('M Y')} - {$cycle->end_date->format('M Y')})"])->all(),
             ],
             'options' => $canManage ? [
+                'export_columns' => TableExport::options(BuildContributionExport::columns($group)),
                 'members' => $this->memberOptions($group),
                 'payment_methods' => $this->options($group->paymentMethods()->where('is_active', true)->orderBy('display_order')->orderBy('id')),
                 'funds' => $this->options($group->groupFunds()->where('status', 'active')->orderBy('name')),
             ] : null,
         ])->response();
+    }
+
+    /**
+     * Download the contributions the list shows (same filters) with only the chosen columns, as Excel, CSV or a print-ready page to
+     * save as PDF.
+     */
+    public function export(Request $request): BinaryFileResponse|StreamedResponse|View
+    {
+        $group = $this->groupFor($request);
+        $columns = BuildContributionExport::columns($group);
+        $choices = TableExport::choices($request, array_keys($columns));
+        $contributions = $this->filteredQuery($request, $group, $this->canManagePayments($group))->with(self::RELATIONS)->get();
+        $status = $request->string('status')->toString();
+
+        return TableExport::respond($choices['format'], 'contributions-'.str($group->name)->slug(), $group->name, 'Contributions', ($status === '' ? 'All statuses' : ucfirst($status)).' · '.$group->currency, [
+            TableExport::table($contributions, $columns, $choices['columns']),
+        ]);
+    }
+
+    /**
+     * The group's contributions narrowed by the list filters (member, cycle, fund, month, status and search). Members who cannot
+     * manage payments only ever see their own.
+     *
+     * @return HasMany<Contribution, Group>
+     */
+    private function filteredQuery(Request $request, Group $group, bool $canManage): HasMany
+    {
+        $search = trim($request->string('q')->toString());
+        $status = $request->string('status')->toString();
+        $memberId = $canManage ? $request->integer('group_member_id') : 0;
+        $cycleId = $request->integer('financial_cycle_id');
+        $fundId = $request->integer('group_fund_id');
+        $month = BillingPeriod::monthFilter($request->string('month')->toString());
+
+        return $group->contributions()
+            ->when($memberId > 0, fn ($query) => $query->where('group_member_id', $memberId))
+            ->when($cycleId > 0, fn ($query) => $query->where('financial_cycle_id', $cycleId))
+            ->when($fundId > 0, fn ($query) => $query->whereHas('contributionItems', fn ($item) => $item->where('group_fund_id', $fundId)))
+            ->when($month !== null, fn ($query) => $query->where(fn ($inner) => $inner
+                ->whereHas('contributionItems', fn ($item) => $item->whereBetween('period_start', $month))
+                ->orWhere(fn ($noPeriod) => $noPeriod->whereDoesntHave('contributionItems', fn ($item) => $item->whereNotNull('period_start'))
+                    ->whereBetween('contribution_date', $month))))
+            ->when(! $canManage, fn ($query) => $query->whereHas('groupMember', fn ($member) => $member->where('user_id', $request->user()->id)))
+            ->when(in_array($status, ['pending', 'approved'], true), fn ($query) => $query->where('status', $status))
+            ->when($search !== '', fn ($query) => $query->where(fn ($inner) => $inner
+                ->where('contribution_number', 'like', "%{$search}%")
+                ->orWhereHas('groupMember', fn ($member) => $member->where('name', 'like', "%{$search}%")->orWhere('member_number', 'like', "%{$search}%"))))
+            ->orderByDesc('contribution_date')
+            ->orderByDesc('id');
     }
 
     public function store(StoreContributionRequest $request, ResolveFinancialCycle $resolveCycle): JsonResponse

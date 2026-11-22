@@ -130,3 +130,19 @@ test('the repayment list carries the total loan, total repaid and balance', func
     $this->actingAs($this->friend)->getJson(route('loan-repayments.index', ['group_id' => $this->group->id]))
         ->assertJsonPath('totals.loan', 0)->assertJsonPath('totals.balance', 0);
 });
+
+test('repayments export with the chosen columns and the list filters', function () {
+    $loanId = activeLoan($this);
+    $this->actingAs($this->treasurer)->postJson(route('loan-repayments.store'), repaymentPayload($this, $loanId, 20000))->assertCreated();
+
+    $columns = $this->actingAs($this->chair)->getJson(route('loan-repayments.index', ['group_id' => $this->group->id]))->json('options.export_columns');
+
+    expect(collect($columns)->pluck('value'))->toContain('repayment_number', 'amount');
+
+    $this->actingAs($this->chair)->get(route('loan-repayments.export', ['group_id' => $this->group->id, 'format' => 'pdf', 'columns' => ['loan_number', 'amount']]))
+        ->assertOk()->assertSee('Loan number')->assertSee('20,000.00')->assertDontSee('Principal');
+    $this->actingAs($this->chair)->get(route('loan-repayments.export', ['group_id' => $this->group->id, 'format' => 'pdf', 'status' => 'approved', 'columns' => ['amount']]))
+        ->assertOk()->assertSee('Nothing found.');
+    $this->actingAs($this->friend)->get(route('loan-repayments.export', ['group_id' => $this->group->id, 'format' => 'pdf', 'columns' => ['amount']]))->assertOk()->assertSee('Nothing found.');
+    $this->actingAs($this->outsider)->get(route('loan-repayments.export', ['group_id' => $this->group->id, 'format' => 'pdf', 'columns' => ['amount']]))->assertForbidden();
+});

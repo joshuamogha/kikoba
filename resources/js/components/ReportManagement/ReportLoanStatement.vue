@@ -1,8 +1,8 @@
 <template>
     <div class="card report">
         <div class="card-header no-print">
-            <ReportToolbar title="Loan statement" :groups="groups" :group-id="groupId" :statuses="['active', 'overdue', 'completed']" :status="status" :csv-url="csvUrl"
-                @group="onGroup" @status="onStatus" @print="print" />
+            <ReportToolbar title="Loan statement" :groups="groups" :group-id="groupId" :statuses="['active', 'overdue', 'completed']" :status="status" :export-columns="report?.export_columns ?? []" :export-url="endpoint" :export-params="queryParams"
+                @group="onGroup" @status="onStatus" />
         </div>
 
         <div v-if="report" class="card-body">

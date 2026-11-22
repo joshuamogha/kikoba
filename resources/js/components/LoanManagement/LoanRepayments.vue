@@ -2,7 +2,11 @@
     <div class="card">
         <div class="card-header">
             <PaymentToolbar title="Loan repayments" :groups="groups" :group-id="groupId" :statuses="['pending', 'approved']"
-                :can-manage="canManage" add-label="Repayment" import-label="Import" @import="importModal = true" @group="onGroup" @search="onSearch" @status="onStatus" @add="openAdd" />
+                :can-manage="canManage" add-label="Repayment" import-label="Import" @import="importModal = true" @group="onGroup" @search="onSearch" @status="onStatus" @add="openAdd">
+                <template v-slot:actions>
+                    <button @click="exportModal = true" class="btn btn-success btn-sm"><i class="bi bi-download"></i> Export</button>
+                </template>
+            </PaymentToolbar>
         </div>
         <div v-if="totals" class="card-body border-bottom">
             <div class="row text-center">
@@ -104,6 +108,8 @@
             <template v-slot:footer><button @click="save" class="btn btn-primary" :disabled="saving">Save</button></template>
         </LargeModal>
 
+        <ExportModal v-if="exportModal" title="Export loan repayments" :columns="options.export_columns ?? []" url="/loan-repayments/export" :params="{ group_id: groupId, q: search, status }" @close="exportModal = false" />
+
         <ImportModal v-if="importModal" title="Import loan repayments" template-url="/loan-repayments/import/template" upload-url="/loan-repayments/import" :group-id="groupId"
             :fields="importFields" :columns="importColumns" key-label="Loan number"
             note="The template lists the group's open loans with their loan number, member and balance: fill in the amount, date and receipt for the repayments you have (the member and balance columns are only for reference). Rows are applied in date order, each as an approved repayment that pays the oldest installments first (penalty, then interest, then principal). A repayment cannot be more than the loan still owes, cannot be dated before the loan was disbursed, and a receipt that is already recorded is skipped, so the same file can be uploaded again safely. Import repayments before the daily overdue check runs on newly imported loans, or penalties will be added for installments that were really paid. Up to 500 rows per file."
@@ -124,6 +130,7 @@ export default {
             editing: {},
             deleting: null,
             importModal: false,
+            exportModal: false,
             importColumns: [
                 { name: "loan_number", required: true, description: "The loan number from the Loans page, e.g. LN-2026-000012. It identifies the loan and its member.", example: "LN-2026-000012" },
                 { name: "amount", required: true, description: "The amount the member paid. It cannot be more than the loan's outstanding balance.", example: "50000" },

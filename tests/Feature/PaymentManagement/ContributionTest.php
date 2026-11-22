@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\UserManagement\User;
+use App\Support\XlsxReader;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -136,4 +137,30 @@ test('many pending contributions can be approved at once', function () {
 
     expect($this->group->contributions()->where('status', 'pending')->count())->toBe(0)
         ->and($this->group->paymentTransactions()->count())->toBe(3);
+});
+
+test('contributions export to Excel with the chosen columns, a column per fund, and the list filters', function () {
+    $this->actingAs($this->chair)->postJson(route('contributions.store'), contributionPayload($this))->assertCreated();
+    $approvedId = $this->actingAs($this->chair)->postJson(route('contributions.store'), contributionPayload($this, ['group_member_id' => $this->treasurerMember->id]))->json('data.id');
+    $this->actingAs($this->chair)->patchJson(route('contributions.approve', $approvedId))->assertOk();
+
+    $list = $this->actingAs($this->chair)->getJson(route('contributions.index', ['group_id' => $this->group->id]))->assertOk();
+    $columns = collect($list->json('options.export_columns'))->pluck('value');
+
+    expect($columns)->toContain('member', 'total_amount', "fund_{$this->savings->id}", "fund_{$this->social->id}");
+
+    $response = $this->actingAs($this->chair)->get(route('contributions.export', [
+        'group_id' => $this->group->id, 'format' => 'xlsx', 'status' => 'approved', 'columns' => ['member', "fund_{$this->social->id}", 'total_amount'],
+    ]))->assertOk();
+    $rows = array_values(XlsxReader::rows($response->baseResponse->getFile()->getPathname()));
+
+    expect($rows[0])->toBe(['Member', 'Social Fund', 'Total'])
+        ->and($rows)->toHaveCount(3)
+        ->and($rows[1][0])->toBe($this->treasurerMember->name)
+        ->and((float) $rows[1][1])->toBe(5000.0)
+        ->and($rows[2][0])->toBe('Total');
+
+    $this->actingAs($this->chair)->getJson(route('contributions.export', ['group_id' => $this->group->id, 'format' => 'xlsx', 'columns' => ['nope']]))->assertUnprocessable();
+    $this->actingAs($this->plain)->get(route('contributions.export', ['group_id' => $this->group->id, 'format' => 'pdf', 'columns' => ['member']]))
+        ->assertOk()->assertSee($this->plainMember->name, false)->assertDontSee($this->treasurerMember->name, false);
 });

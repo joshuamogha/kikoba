@@ -2,7 +2,7 @@
     <div class="card report">
         <div class="card-header no-print">
             <ReportToolbar title="Member statement" :groups="groups" :group-id="groupId" :cycles="cycles" :cycle-id="cycleId" :members="members" :member-id="memberId"
-                :csv-url="csvUrl" @group="onGroup" @cycle="onCycle" @member="onMember" @print="print" />
+                :export-columns="report?.export_columns ?? []" :export-url="endpoint" :export-params="queryParams" @group="onGroup" @cycle="onCycle" @member="onMember" />
         </div>
 
         <div v-if="report" class="card-body">

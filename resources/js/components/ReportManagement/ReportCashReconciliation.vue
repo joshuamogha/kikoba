@@ -1,7 +1,7 @@
 <template>
     <div class="card report">
         <div class="card-header no-print">
-            <ReportToolbar title="Cash reconciliation" :groups="groups" :group-id="groupId" :csv-url="csvUrl" @group="onGroup" @print="print" />
+            <ReportToolbar title="Cash reconciliation" :groups="groups" :group-id="groupId" :csv-url="csvUrl" @group="onGroup" />
             <div class="row g-2 mt-1">
                 <div class="col-md-3"><DatePicker :model-value="from" label="From" @update:modelValue="onFrom" /></div>
                 <div class="col-md-3"><DatePicker :model-value="to" label="To" @update:modelValue="onTo" /></div>

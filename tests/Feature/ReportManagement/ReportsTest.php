@@ -2,6 +2,7 @@
 
 use App\Actions\LoanManagement\RecordExistingLoan;
 use App\Models\UserManagement\User;
+use App\Support\XlsxReader;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 
@@ -272,4 +273,24 @@ test('share purchases without a contribution still count as deposits, but linked
     $withMethod = collect($this->actingAs($this->chair)->getJson(route('reports.cash-reconciliation', ['group_id' => $this->group->id, 'payment_method_id' => $methodId]))->json('data.rows'))->pluck('value', 'label');
 
     expect($withMethod['Deposits'])->toEqual((float) $this->group->contributions()->where('status', 'approved')->where('payment_method_id', $methodId)->sum('total_amount'));
+});
+
+test('reports export to Excel and PDF with the chosen columns', function () {
+    $monthly = $this->actingAs($this->chair)->getJson(reportUrl('monthly-shares', $this))->assertOk();
+    expect(collect($monthly->json('data.export_columns'))->pluck('value'))->toContain('name', 'm:2025-12', 'total_shares');
+
+    $file = $this->actingAs($this->chair)->get(reportUrl('monthly-shares', $this, ['format' => 'xlsx', 'columns' => ['name', 'm:2025-12', 'total']]))->assertOk();
+    $rows = array_values(XlsxReader::rows($file->baseResponse->getFile()->getPathname()));
+
+    expect($rows[0])->toBe(['Name', 'Dec 2025', 'Total amount'])
+        ->and(collect($rows)->pluck(0))->toContain($this->plainMember->name, 'Total');
+
+    $loans = $this->actingAs($this->chair)->get(route('reports.loan-statement', ['group_id' => $this->group->id, 'format' => 'pdf', 'columns' => ['loan_number', 'balance']]))
+        ->assertOk()->assertSee($this->loan->loan_number)->assertSee('75,000.00')->assertDontSee('Principal');
+
+    $statement = $this->actingAs($this->chair)->get(reportUrl('member-statement', $this, ['group_member_id' => $this->plainMember->id, 'format' => 'pdf', 'columns' => ['loans', 'm:2025-12']]))
+        ->assertOk()->assertSee('LOANS')->assertSee($this->loan->loan_number)->assertDontSee('SHARES')->assertDontSee('CONTRIBUTIONS');
+
+    $this->actingAs($this->outsider)->get(reportUrl('monthly-shares', $this, ['format' => 'xlsx']))->assertForbidden();
+    $this->actingAs($this->chair)->getJson(reportUrl('monthly-shares', $this, ['format' => 'xlsx', 'columns' => ['bogus']]))->assertUnprocessable();
 });

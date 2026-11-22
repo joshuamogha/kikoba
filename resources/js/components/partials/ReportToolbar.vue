@@ -31,11 +31,10 @@
             </select>
         </div>
         <div class="col text-end">
-            <div class="btn-group btn-group-sm">
-                <button @click="$emit('print')" class="btn btn-outline-primary"><i class="bi bi-printer"></i> Print / PDF</button>
-                <a :href="csvUrl" class="btn btn-outline-secondary"><i class="bi bi-filetype-csv"></i> CSV</a>
-            </div>
+            <button v-if="exportColumns" @click="exporting = true" class="btn btn-success btn-sm" :disabled="!exportColumns.length"><i class="bi bi-download"></i> Export</button>
+            <a v-else-if="csvUrl" :href="csvUrl" class="btn btn-secondary btn-sm"><i class="bi bi-filetype-csv"></i> CSV</a>
         </div>
+        <ExportModal v-if="exporting" :title="`Export ${title.toLowerCase()}`" :columns="exportColumns" :url="exportUrl" :params="exportParams" :formats="['xlsx', 'pdf', 'csv']" @close="exporting = false" />
     </div>
 </template>
 
@@ -56,9 +55,16 @@ export default {
         fundId: { type: [String, Number], default: "" },
         statuses: { type: Array, default: null },
         status: { type: String, default: "" },
-        csvUrl: { type: String, required: true },
+        csvUrl: { type: String, default: "" },
+        exportColumns: { type: Array, default: null },
+        exportUrl: { type: String, default: "" },
+        exportParams: { type: Object, default: () => ({}) },
     },
 
-    emits: ["group", "cycle", "member", "fund", "status", "print"],
+    emits: ["group", "cycle", "member", "fund", "status"],
+
+    data() {
+        return { exporting: false };
+    },
 };
 </script>

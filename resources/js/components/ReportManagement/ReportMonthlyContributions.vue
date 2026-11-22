@@ -2,7 +2,7 @@
     <div class="card report">
         <div class="card-header no-print">
             <ReportToolbar title="Monthly contributions" :groups="groups" :group-id="groupId" :cycles="cycles" :cycle-id="cycleId" :funds="funds" :fund-id="fundId"
-                :csv-url="csvUrl" @group="onGroup" @cycle="onCycle" @fund="onFund" @print="print" />
+                :export-columns="report?.export_columns ?? []" :export-url="endpoint" :export-params="queryParams" @group="onGroup" @cycle="onCycle" @fund="onFund" />
         </div>
 
         <div v-if="report" class="card-body">

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\LoanManagement;
 
 use App\Actions\LoanManagement\AllocateLoanRepayment;
+use App\Actions\LoanManagement\BuildLoanRepaymentExport;
 use App\Actions\LoanManagement\RebuildLoanPayments;
 use App\Actions\PaymentManagement\RecordPaymentTransaction;
 use App\Http\Controllers\Controller;
@@ -11,12 +12,17 @@ use App\Http\Requests\LoanManagement\StoreLoanRepaymentRequest;
 use App\Http\Requests\LoanManagement\UpdateLoanRepaymentRequest;
 use App\Http\Resources\LoanManagement\LoanRepaymentResource;
 use App\Models\LoanManagement\LoanRepayment;
+use App\Models\UserManagement\Group;
+use App\Support\TableExport;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class LoanRepaymentController extends Controller
 {
@@ -35,20 +41,8 @@ class LoanRepaymentController extends Controller
 
         $group = $this->groupFor($request);
         $canManage = Gate::allows('manageLoans', $group);
-        $search = trim($request->string('q')->toString());
-        $status = $request->string('status')->toString();
-
-        $rows = LoanRepayment::query()
-            ->whereHas('loan', fn ($loan) => $loan->where('group_id', $group->id))
+        $rows = $this->filteredQuery($request, $group, $canManage)
             ->with(self::RELATIONS)
-            ->when(! $canManage, fn ($query) => $query->whereHas('groupMember', fn ($member) => $member->where('user_id', $request->user()->id)))
-            ->when(in_array($status, ['pending', 'approved'], true), fn ($query) => $query->where('status', $status))
-            ->when($search !== '', fn ($query) => $query->where(fn ($inner) => $inner
-                ->where('repayment_number', 'like', "%{$search}%")
-                ->orWhereHas('loan', fn ($loan) => $loan->where('loan_number', 'like', "%{$search}%"))
-                ->orWhereHas('groupMember', fn ($member) => $member->where('name', 'like', "%{$search}%"))))
-            ->orderByDesc('payment_date')
-            ->orderByDesc('id')
             ->paginate(15)
             ->withQueryString();
 
@@ -63,11 +57,51 @@ class LoanRepaymentController extends Controller
                 'balance' => (float) (clone $loans)->sum('outstanding_balance'),
             ],
             'options' => $canManage ? [
+                'export_columns' => TableExport::options(BuildLoanRepaymentExport::columns()),
                 'loans' => $group->loans()->whereIn('status', ['active', 'overdue'])->with('groupMember:id,name')->orderBy('id')->get()
                     ->map(fn ($loan) => ['value' => $loan->id, 'label' => "{$loan->loan_number} - {$loan->groupMember->name} (owes ".number_format((float) $loan->outstanding_balance, 2).')', 'balance' => (float) $loan->outstanding_balance, 'disbursed' => $loan->disbursement_date->toDateString()])->all(),
                 'payment_methods' => $this->options($group->paymentMethods()->where('is_active', true)->orderBy('display_order')->orderBy('id')),
             ] : null,
         ])->response();
+    }
+
+    /**
+     * Download the repayments the list shows (same filters) with only the chosen columns, as Excel, CSV or a print-ready page to
+     * save as PDF.
+     */
+    public function export(Request $request): BinaryFileResponse|StreamedResponse|View
+    {
+        $columns = BuildLoanRepaymentExport::columns();
+        $choices = TableExport::choices($request, array_keys($columns));
+        $group = $this->groupFor($request);
+        $repayments = $this->filteredQuery($request, $group, Gate::allows('manageLoans', $group))->with(self::RELATIONS)->get();
+        $status = $request->string('status')->toString();
+
+        return TableExport::respond($choices['format'], 'loan-repayments-'.str($group->name)->slug(), $group->name, 'Loan repayments', ($status === '' ? 'All statuses' : ucfirst($status)).' · '.$group->currency, [
+            TableExport::table($repayments, $columns, $choices['columns']),
+        ]);
+    }
+
+    /**
+     * The group's repayments narrowed by the list filters (search and status). Members who cannot manage loans only ever see their own.
+     *
+     * @return Builder<LoanRepayment>
+     */
+    private function filteredQuery(Request $request, Group $group, bool $canManage): Builder
+    {
+        $search = trim($request->string('q')->toString());
+        $status = $request->string('status')->toString();
+
+        return LoanRepayment::query()
+            ->whereHas('loan', fn ($loan) => $loan->where('group_id', $group->id))
+            ->when(! $canManage, fn ($query) => $query->whereHas('groupMember', fn ($member) => $member->where('user_id', $request->user()->id)))
+            ->when(in_array($status, ['pending', 'approved'], true), fn ($query) => $query->where('status', $status))
+            ->when($search !== '', fn ($query) => $query->where(fn ($inner) => $inner
+                ->where('repayment_number', 'like', "%{$search}%")
+                ->orWhereHas('loan', fn ($loan) => $loan->where('loan_number', 'like', "%{$search}%"))
+                ->orWhereHas('groupMember', fn ($member) => $member->where('name', 'like', "%{$search}%"))))
+            ->orderByDesc('payment_date')
+            ->orderByDesc('id');
     }
 
     /**

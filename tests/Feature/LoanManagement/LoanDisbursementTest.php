@@ -19,21 +19,6 @@ beforeEach(function () {
     $this->product = createLoanProductFor($this->group);
 });
 
-/**
- * Submit and approve a loan application for the plain member.
- */
-function approvedApplication($test, float $amount = 100000, int $months = 3): int
-{
-    $id = $test->actingAs($test->plain)->postJson(route('loan-applications.store'), [
-        'group_id' => $test->group->id, 'group_member_id' => $test->plainMember->id, 'loan_product_id' => $test->product->id,
-        'requested_amount' => $amount, 'duration_months' => $months, 'purpose' => 'Business',
-    ])->json('data.id');
-
-    $test->actingAs($test->chair)->patchJson(route('loan-applications.approve', $id), ['approved_amount' => $amount])->assertOk();
-
-    return $id;
-}
-
 test('disbursing an approved application creates the loan and its schedule', function () {
     $applicationId = approvedApplication($this);
 

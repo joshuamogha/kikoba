@@ -119,6 +119,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('reports/loan-statement', [LoanStatementController::class, 'index'])->name('reports.loan-statement');
     Route::get('contributions/import/template', [ContributionImportController::class, 'template'])->name('contributions.template');
     Route::post('contributions/import', [ContributionImportController::class, 'import'])->name('contributions.import');
+    Route::get('contributions/export', [ContributionController::class, 'export'])->name('contributions.export');
     Route::post('contributions/bulk', [ContributionController::class, 'storeMany'])->name('contributions.store-many');
     Route::post('contributions/sync-shares', [ContributionController::class, 'syncShares'])->name('contributions.sync-shares');
     Route::post('contributions/approve-many', [ContributionController::class, 'approveMany'])->name('contributions.approve-many');
@@ -147,10 +148,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('loan-guarantors', LoanGuarantorController::class)->only(['index', 'store']);
     Route::patch('loan-guarantors/{loan_guarantor}/respond', [LoanGuarantorController::class, 'respond'])->name('loan-guarantors.respond');
 
+    Route::get('loans/export', [LoanController::class, 'export'])->name('loans.export');
     Route::resource('loans', LoanController::class)->only(['index', 'store', 'show']);
     Route::get('loan-installments', [LoanInstallmentController::class, 'index'])->name('loan-installments.index');
 
     Route::get('loan-repayments/import/template', [LoanRepaymentImportController::class, 'template'])->name('loan-repayments.template');
+    Route::get('loan-repayments/export', [LoanRepaymentController::class, 'export'])->name('loan-repayments.export');
     Route::post('loan-repayments/import', [LoanRepaymentImportController::class, 'import'])->name('loan-repayments.import');
     Route::resource('loan-repayments', LoanRepaymentController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::patch('loan-repayments/{loan_repayment}/approve', [LoanRepaymentController::class, 'approve'])->name('loan-repayments.approve');

@@ -1,8 +1,8 @@
 <template>
     <div class="card report">
         <div class="card-header no-print">
-            <ReportToolbar title="Monthly shares" :groups="groups" :group-id="groupId" :cycles="cycles" :cycle-id="cycleId" :csv-url="csvUrl"
-                @group="onGroup" @cycle="onCycle" @print="print" />
+            <ReportToolbar title="Monthly shares" :groups="groups" :group-id="groupId" :cycles="cycles" :cycle-id="cycleId" :export-columns="report?.export_columns ?? []" :export-url="endpoint" :export-params="queryParams"
+                @group="onGroup" @cycle="onCycle" />
         </div>
 
         <div v-if="report" class="card-body">

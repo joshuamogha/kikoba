@@ -3,7 +3,11 @@
         <div class="card-header">
             <PaymentToolbar title="Loans" :groups="groups" :group-id="groupId" :statuses="['active', 'overdue', 'completed']"
                 :can-manage="canManage" add-label="Disburse" @group="onGroup" @search="onSearch" @status="onStatus"
-                @add="openForm({ loan_application_id: '', disbursement_date: new Date().toISOString().slice(0, 10) })" />
+                @add="openForm({ loan_application_id: '', disbursement_date: new Date().toISOString().slice(0, 10) })">
+                <template v-slot:actions>
+                    <button @click="exportModal = true" class="btn btn-success btn-sm"><i class="bi bi-download"></i> Export</button>
+                </template>
+            </PaymentToolbar>
         </div>
         <div v-if="totals" class="card-body border-bottom">
             <div class="row text-center">
@@ -42,6 +46,8 @@
             </table>
         </div>
         <div v-if="meta.total" class="card-footer"><Pagination :meta="meta" @change="load" /></div>
+
+        <ExportModal v-if="exportModal" title="Export loans" :columns="exportOptions" url="/loans/export" :params="exportParams" @close="exportModal = false" />
 
         <MediumModal v-if="formModal" @close="closeModal">
             <template v-slot:header><h4>Disburse loan</h4></template>
@@ -92,7 +98,16 @@ export default {
     mixins: [paymentPage],
 
     data() {
-        return { endpoint: "/loans", detail: null };
+        return { endpoint: "/loans", detail: null, exportModal: false };
+    },
+
+    computed: {
+        exportOptions() {
+            return this.options.export_columns ?? [];
+        },
+        exportParams() {
+            return { group_id: this.groupId, q: this.search, status: this.status };
+        },
     },
 
     methods: {

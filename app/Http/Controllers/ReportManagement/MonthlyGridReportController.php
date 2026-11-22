@@ -6,10 +6,11 @@ use App\Actions\PaymentManagement\BuildContributionCalendar;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\ReportManagement\Concerns\ScopesReports;
 use App\Models\UserManagement\Group;
-use App\Support\ReportCsv;
+use App\Support\TableExport;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class MonthlyGridReportController extends Controller
@@ -19,7 +20,7 @@ class MonthlyGridReportController extends Controller
     /**
      * Members x months: shares bought each month, with total shares and total amount.
      */
-    public function shares(Request $request, BuildContributionCalendar $build): View|JsonResponse|StreamedResponse
+    public function shares(Request $request, BuildContributionCalendar $build): View|JsonResponse|StreamedResponse|BinaryFileResponse
     {
         return $this->report($request, $build, 'shares');
     }
@@ -27,14 +28,14 @@ class MonthlyGridReportController extends Controller
     /**
      * Members x months: what each member paid to one fund each month.
      */
-    public function contributions(Request $request, BuildContributionCalendar $build): View|JsonResponse|StreamedResponse
+    public function contributions(Request $request, BuildContributionCalendar $build): View|JsonResponse|StreamedResponse|BinaryFileResponse
     {
         return $this->report($request, $build, 'contributions');
     }
 
-    private function report(Request $request, BuildContributionCalendar $build, string $type): View|JsonResponse|StreamedResponse
+    private function report(Request $request, BuildContributionCalendar $build, string $type): View|JsonResponse|StreamedResponse|BinaryFileResponse
     {
-        if (! $request->expectsJson() && $request->query('format') !== 'csv') {
+        if (! $request->expectsJson() && ! TableExport::wanted($request)) {
             return view("backend.pages.report-management.monthly-{$type}", ['groups' => $this->groupOptions($request->user())]);
         }
 
@@ -53,8 +54,16 @@ class MonthlyGridReportController extends Controller
             $grid = $this->withShareCounts($grid);
         }
 
-        if ($grid !== null && $request->query('format') === 'csv') {
-            return $this->csv($group, $cycle->name, $type, $grid, collect($funds)->firstWhere('value', $fundId)['label'] ?? null);
+        $columns = $grid === null ? [] : $this->columns($type, $grid);
+
+        if ($grid !== null && TableExport::wanted($request)) {
+            $choices = TableExport::choices($request, array_keys($columns));
+            $fundName = collect($funds)->firstWhere('value', $fundId)['label'] ?? null;
+            $title = $type === 'shares' ? 'Monthly shares' : 'Monthly contributions'.($fundName ? " - {$fundName}" : '');
+
+            return TableExport::respond($choices['format'], str($title)->slug().'-'.str($cycle->name)->slug(), $group->name, $title, $cycle->name, [
+                TableExport::table($grid['rows'], $columns, $choices['columns']),
+            ]);
         }
 
         return response()->json([
@@ -64,6 +73,7 @@ class MonthlyGridReportController extends Controller
                 'type' => $type,
                 'fund_id' => $fundId,
                 ...$grid,
+                'export_columns' => TableExport::options($columns),
             ],
             'cycles' => $this->cycleOptions($cycles),
             'funds' => $funds,
@@ -111,31 +121,25 @@ class MonthlyGridReportController extends Controller
     }
 
     /**
+     * The columns of the grid: member number and name, one per month, then the totals. Shares count shares in each month.
+     *
      * @param  array<string, mixed>  $grid
+     * @return array<string, array{label: string, amount: bool, value: callable(mixed): (string|int|float|null)}>
      */
-    private function csv(Group $group, string $cycleName, string $type, array $grid, ?string $fundName): StreamedResponse
+    private function columns(string $type, array $grid): array
     {
-        $months = array_column($grid['months'], 'label');
-        $title = $type === 'shares' ? 'Monthly shares' : 'Monthly contributions'.($fundName ? " - {$fundName}" : '');
+        $columns = TableExport::arrayColumns(['member_number' => ['Number'], 'name' => ['Name']]);
 
-        if ($type === 'shares') {
-            $rows = [
-                [$group->name, $title, $cycleName, 'Printed', now()->toDateString()],
-                [],
-                ['Number', 'Name', ...$months, 'Total shares', 'Total amount'],
-                ...array_map(fn (array $row) => [$row['member_number'], $row['name'], ...array_map(fn (array $cell) => $cell['quantity'], array_values($row['cells'])), $row['total_shares'], $row['total']], $grid['rows']),
-                ['', 'Total', ...array_values($grid['month_shares']), $grid['total_shares'], $grid['grand_total']],
-            ];
-        } else {
-            $rows = [
-                [$group->name, $title, $cycleName, 'Printed', now()->toDateString()],
-                [],
-                ['Number', 'Name', ...$months, 'Total'],
-                ...array_map(fn (array $row) => [$row['member_number'], $row['name'], ...array_map(fn (array $cell) => $cell['amount'], array_values($row['cells'])), $row['total']], $grid['rows']),
-                ['', 'Total', ...array_values($grid['totals']), $grid['grand_total']],
+        foreach ($grid['months'] as $month) {
+            $columns["m:{$month['key']}"] = [
+                'label' => $month['label'],
+                'amount' => true,
+                'value' => fn (array $row) => $type === 'shares' ? $row['cells'][$month['key']]['quantity'] : $row['cells'][$month['key']]['amount'],
             ];
         }
 
-        return ReportCsv::download(str($title)->slug().'-'.str($cycleName)->slug().'.csv', $rows);
+        return $columns + TableExport::arrayColumns($type === 'shares'
+            ? ['total_shares' => ['Total shares', true], 'total' => ['Total amount', true]]
+            : ['total' => ['Total', true]]);
     }
 }
