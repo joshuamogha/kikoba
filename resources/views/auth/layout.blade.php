@@ -3,7 +3,6 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@yield('title') · {{ config('app.name') }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -82,19 +81,25 @@
             .sign-in-form { padding: 30px 28px; }
         }
     </style>
+    @include('partials.site-head', ['pageTitle' => $__env->yieldContent('title'), 'public' => false])
 </head>
 <body class="sign-in-page">
     <main class="sign-in-shell">
         <section class="sign-in-welcome">
             <div class="d-flex flex-column gap-2 align-items-start">
-                <a href="{{ route('home') }}" class="brand">{{ config('app.name') }}</a>
+                <a href="{{ route('home') }}" class="brand d-flex align-items-center gap-2">
+                    @if ($logo = $site->fileUrl('logo_path'))
+                        <img src="{{ $logo }}" alt="{{ $site->get('name') }}" height="34">
+                    @endif
+                    <span>{{ $site->get('name') }}</span>
+                </a>
                 <a href="{{ route('home') }}" class="back-home">&larr; Back to home</a>
             </div>
             <div>
                 <h1>@yield('welcome_title')</h1>
                 <p>@yield('welcome_text')</p>
             </div>
-            <a href="mailto:{{ config('mail.from.address') }}">Need assistance? Contact us ↗</a>
+            <a href="mailto:{{ $site->support_email ?: config('mail.from.address') }}">Need assistance? Contact us ↗</a>
         </section>
         <section class="sign-in-form">
             <p class="eyebrow">@yield('eyebrow', 'MEMBER PORTAL')</p>

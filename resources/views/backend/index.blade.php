@@ -12,6 +12,9 @@
       <!--begin::App Main-->
       <main class="app-main">
         <!--begin::App Content Header-->
+        @if ($site->maintenance_banner)
+          <div class="alert alert-warning rounded-0 mb-0 py-2 text-center">{{ $site->maintenance_banner }}</div>
+        @endif
         <div class="app-content-header">
           <!--begin::Container-->
           <div class="container-fluid">
@@ -41,16 +44,20 @@
       <!--end::App Main-->
       <!--begin::Footer-->
       <footer class="app-footer">
-        <!--begin::To the end-->
-        <div class="float-end d-none d-sm-inline">Anything you want</div>
-        <!--end::To the end-->
-        <!--begin::Copyright-->
-        <strong>
-          Copyright &copy; 2014-2024&nbsp;
-          <a href="https://adminlte.io" class="text-decoration-none">AdminLTE.io</a>.
-        </strong>
+        <div class="float-end d-none d-sm-inline">
+          @if ($site->footer_text){{ $site->footer_text }}@endif
+          @if ($site->support_email)
+            <a href="mailto:{{ $site->support_email }}" class="text-decoration-none ms-2">{{ $site->support_email }}</a>
+          @endif
+          @if ($site->terms_url)
+            <a href="{{ $site->terms_url }}" class="text-decoration-none ms-2">Terms</a>
+          @endif
+          @if ($site->privacy_url)
+            <a href="{{ $site->privacy_url }}" class="text-decoration-none ms-2">Privacy</a>
+          @endif
+        </div>
+        <strong>Copyright &copy; {{ date('Y') }} {{ $site->copyright_holder ?: $site->get('name') }}.</strong>
         All rights reserved.
-        <!--end::Copyright-->
       </footer>
       <!--end::Footer-->
     </div>

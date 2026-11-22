@@ -9,7 +9,8 @@
         </div>
         <div v-if="cycles" class="col-md-3">
             <select :value="cycleId" @change="$emit('cycle', $event.target.value)" class="form-select" aria-label="Financial cycle">
-                <option v-if="!cycles.length" value="">No financial cycles yet</option>
+                <option v-if="allCycles" value="">All time</option>
+                <option v-else-if="!cycles.length" value="">No financial cycles yet</option>
                 <option v-for="cycle in cycles" :key="cycle.value" :value="cycle.value">{{ cycle.label }}</option>
             </select>
         </div>
@@ -49,6 +50,7 @@ export default {
         groupId: { type: [String, Number], default: "" },
         cycles: { type: Array, default: null },
         cycleId: { type: [String, Number], default: "" },
+        allCycles: { type: Boolean, default: false },
         members: { type: Array, default: null },
         memberId: { type: [String, Number], default: "" },
         funds: { type: Array, default: null },

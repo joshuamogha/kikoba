@@ -3,8 +3,6 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ config('app.name') }} · Savings group, SACCOS and VICOBA management</title>
-    <meta name="description" content="Run your savings group, VICOBA or SACCOS in one place: members, monthly contributions, shares, loans, financial cycles and statements you can share with members.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -94,11 +92,20 @@
         @media (max-width: 991px) { .hero { padding: 56px 0 48px; } section.block { padding: 60px 0; } }
         @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
     </style>
+    @include('partials.site-head', ['pageTitle' => '', 'public' => true])
 </head>
 <body>
+    @if ($site->maintenance_banner)
+        <div class="alert alert-warning text-center rounded-0 mb-0 py-2">{{ $site->maintenance_banner }}</div>
+    @endif
     <nav class="site-nav">
         <div class="container d-flex align-items-center justify-content-between py-3">
-            <a href="{{ url('/') }}" class="brand">{{ config('app.name') }}</a>
+            <a href="{{ url('/') }}" class="brand d-flex align-items-center gap-2">
+                @if ($logo = $site->fileUrl('logo_path'))
+                    <img src="{{ $logo }}" alt="{{ $site->get('name') }}" height="34">
+                @endif
+                <span>{{ $site->get('name') }}</span>
+            </a>
             <div class="d-none d-md-flex gap-4">
                 <a class="nav-link" href="#features">Features</a>
                 <a class="nav-link" href="#how">How it works</a>
@@ -325,9 +332,44 @@
     </section>
 
     <footer class="site-footer">
-        <div class="container d-flex flex-wrap justify-content-between gap-2">
-            <span class="brand">{{ config('app.name') }}</span>
-            <span>&copy; {{ date('Y') }} {{ config('app.name') }}. Savings group management.</span>
+        <div class="container d-flex flex-wrap justify-content-between gap-3">
+            <div>
+                <span class="brand">{{ $site->get('name') }}</span>
+                @if ($site->motto)
+                    <div class="small text-muted">{{ $site->motto }}</div>
+                @endif
+            </div>
+            <div class="small d-flex flex-column gap-1">
+                @if ($site->support_email)
+                    <a href="mailto:{{ $site->support_email }}"><i class="bi bi-envelope"></i> {{ $site->support_email }}</a>
+                @endif
+                @if ($site->support_phone)
+                    <a href="tel:{{ preg_replace('/[^+\d]/', '', $site->support_phone) }}"><i class="bi bi-telephone"></i> {{ $site->support_phone }}</a>
+                @endif
+                @if ($site->whatsapp)
+                    <a href="https://wa.me/{{ preg_replace('/\D/', '', $site->whatsapp) }}" target="_blank" rel="noopener"><i class="bi bi-whatsapp"></i> {{ $site->whatsapp }}</a>
+                @endif
+                @if ($site->address)
+                    <span><i class="bi bi-geo-alt"></i> {{ $site->address }}</span>
+                @endif
+            </div>
+            <div class="d-flex gap-3 fs-5 align-items-start">
+                @foreach (['facebook_url' => 'facebook', 'instagram_url' => 'instagram', 'x_url' => 'twitter-x', 'youtube_url' => 'youtube', 'linkedin_url' => 'linkedin', 'website' => 'globe'] as $field => $icon)
+                    @if ($site->{$field})
+                        <a href="{{ $site->{$field} }}" target="_blank" rel="noopener" aria-label="{{ $icon }}"><i class="bi bi-{{ $icon }}"></i></a>
+                    @endif
+                @endforeach
+            </div>
+            <div class="small text-muted">
+                &copy; {{ date('Y') }} {{ $site->copyright_holder ?: $site->get('name') }}.
+                {{ $site->footer_text ?: 'Savings group management.' }}
+                @if ($site->terms_url)
+                    <a href="{{ $site->terms_url }}">Terms</a>
+                @endif
+                @if ($site->privacy_url)
+                    <a href="{{ $site->privacy_url }}">Privacy</a>
+                @endif
+            </div>
         </div>
     </footer>
 </body>

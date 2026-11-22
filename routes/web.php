@@ -27,6 +27,7 @@ use App\Http\Controllers\PaymentManagement\LookupController;
 use App\Http\Controllers\PaymentManagement\PaymentPageController;
 use App\Http\Controllers\PaymentManagement\PaymentTransactionController;
 use App\Http\Controllers\ReportManagement\CashReconciliationController;
+use App\Http\Controllers\ReportManagement\GroupStatementController;
 use App\Http\Controllers\ReportManagement\LoanStatementController;
 use App\Http\Controllers\ReportManagement\MemberStatementController;
 use App\Http\Controllers\ReportManagement\MonthlyGridReportController;
@@ -35,6 +36,7 @@ use App\Http\Controllers\SettingManagement\FineTypeController;
 use App\Http\Controllers\SettingManagement\MemberFineController;
 use App\Http\Controllers\SettingManagement\MemberFineImportController;
 use App\Http\Controllers\SettingManagement\SettingPageController;
+use App\Http\Controllers\SettingManagement\SiteSettingController;
 use App\Http\Controllers\ShareManagement\GroupShareController;
 use App\Http\Controllers\ShareManagement\MemberShareOutListController;
 use App\Http\Controllers\ShareManagement\MemberShareTransactionListController;
@@ -116,6 +118,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('reports/monthly-shares', [MonthlyGridReportController::class, 'shares'])->name('reports.monthly-shares');
     Route::get('reports/monthly-contributions', [MonthlyGridReportController::class, 'contributions'])->name('reports.monthly-contributions');
     Route::get('reports/cash-reconciliation', [CashReconciliationController::class, 'index'])->name('reports.cash-reconciliation');
+    Route::get('reports/group-statement', [GroupStatementController::class, 'index'])->name('reports.group-statement');
     Route::get('reports/loan-statement', [LoanStatementController::class, 'index'])->name('reports.loan-statement');
     Route::get('contributions/import/template', [ContributionImportController::class, 'template'])->name('contributions.template');
     Route::post('contributions/import', [ContributionImportController::class, 'import'])->name('contributions.import');
@@ -217,6 +220,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 Route::middleware(['auth', 'verified', 'can:platform-admin'])->group(function () {
     Route::resource('group-types', GroupTypeController::class)->except(['create', 'show', 'edit']);
     Route::post('group-types/{group_type}/activate', [GroupTypeController::class, 'activate'])->name('group-types.activate');
+    Route::get('site-settings', [SiteSettingController::class, 'index'])->name('site-settings.index');
+    Route::post('site-settings', [SiteSettingController::class, 'update'])->name('site-settings.update');
     Route::resource('relations', RelationController::class)->except(['create', 'show', 'edit']);
     Route::post('relations/{relation}/activate', [RelationController::class, 'activate'])->name('relations.activate');
 });

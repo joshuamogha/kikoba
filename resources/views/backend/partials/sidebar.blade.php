@@ -20,8 +20,12 @@
   <!--begin::Sidebar Brand-->
   <div class="sidebar-brand">
     <a href="{{ route('dashboard') }}" class="brand-link">
-      <i class="bi bi-piggy-bank-fill brand-image fs-3 lh-1 text-warning"></i>
-      <span class="brand-text fw-light">{{ config('app.name') }}</span>
+      @if ($logo = $site->fileUrl('logo_path'))
+        <img src="{{ $logo }}" alt="{{ $site->get('name') }}" class="brand-image" style="max-height: 33px; width: auto;">
+      @else
+        <i class="bi bi-piggy-bank-fill brand-image fs-3 lh-1 text-warning"></i>
+      @endif
+      <span class="brand-text fw-light">{{ $site->short_name ?: $site->get('name') }}</span>
     </a>
   </div>
   <!--end::Sidebar Brand-->

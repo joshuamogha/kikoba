@@ -169,9 +169,9 @@ test('every report can be downloaded as CSV with the same figures', function () 
 test('the Reports menu has the four reports and each page opens', function () {
     $menu = collect(config('sidebar.menus'))->firstWhere('label', 'Reports');
 
-    expect(collect($menu['items'])->pluck('label')->all())->toBe(['Member Statement', 'Monthly Shares', 'Monthly Contributions', 'Loan Statement', 'Cash Reconciliation']);
+    expect(collect($menu['items'])->pluck('label')->all())->toBe(['Group Statement', 'Member Statement', 'Monthly Shares', 'Monthly Contributions', 'Loan Statement', 'Cash Reconciliation']);
 
-    foreach (['member-statement' => 'report-member-statement', 'monthly-shares' => 'report-monthly-shares', 'monthly-contributions' => 'report-monthly-contributions', 'loan-statement' => 'report-loan-statement', 'cash-reconciliation' => 'report-cash-reconciliation'] as $route => $tag) {
+    foreach (['group-statement' => 'report-group-statement', 'member-statement' => 'report-member-statement', 'monthly-shares' => 'report-monthly-shares', 'monthly-contributions' => 'report-monthly-contributions', 'loan-statement' => 'report-loan-statement', 'cash-reconciliation' => 'report-cash-reconciliation'] as $route => $tag) {
         $this->actingAs($this->chair)->get(route("reports.{$route}"))->assertOk()->assertSee("<{$tag}", false);
     }
 });
@@ -293,4 +293,42 @@ test('reports export to Excel and PDF with the chosen columns', function () {
 
     $this->actingAs($this->outsider)->get(reportUrl('monthly-shares', $this, ['format' => 'xlsx']))->assertForbidden();
     $this->actingAs($this->chair)->getJson(reportUrl('monthly-shares', $this, ['format' => 'xlsx', 'columns' => ['bogus']]))->assertUnprocessable();
+});
+
+test('the group statement totals shares, every fund, fines and loans, and each member row', function () {
+    $this->group->memberFines()->forceCreate([
+        'financial_cycle_id' => $this->cycle->id, 'group_member_id' => $this->plainMember->id,
+        'fine_type_id' => $this->group->fineTypes()->create(['name' => 'Late', 'code' => 'LATE', 'default_amount' => 3000, 'status' => 'active'])->id,
+        'fine_number' => 'FIN-1', 'reason' => 'Late', 'fine_date' => '2026-02-01', 'amount' => 3000, 'amount_paid' => 1000, 'balance' => 2000, 'status' => 'partial', 'issued_by' => $this->chair->id,
+    ]);
+
+    $report = $this->actingAs($this->chair)->getJson(route('reports.group-statement', ['group_id' => $this->group->id]))->assertOk();
+    $summary = $report->json('data.summary');
+    $funds = collect($summary['funds'])->pluck('amount', 'name');
+    $plain = collect($report->json('data.rows'))->firstWhere('member_id', $this->plainMember->id);
+
+    expect($summary['shares'])->toBe(6)
+        ->and($summary['shares_amount'])->toBe(30000)
+        ->and($funds['Savings'])->toBe(20000)->and($funds['Jamii'])->toBe(5000)->and($funds['Hisa'])->toBe(30000)
+        ->and($summary['total_contributions'])->toBe(55000)
+        ->and($summary['fines'])->toBe(['issued' => 3000, 'paid' => 1000, 'balance' => 2000])
+        ->and($summary['loans']['principal'])->toBe(100000)->and($summary['loans']['paid'])->toBe(40000)->and($summary['loans']['balance'])->toBe(75000)
+        ->and($report->json('data.checks.hisa_difference'))->toBe(0)
+        ->and($plain['shares'])->toBe(5)->and($plain['total_contributions'])->toBe(50000)->and($plain['fines_paid'])->toBe(1000);
+
+    $this->actingAs($this->chair)->getJson(route('reports.group-statement', ['group_id' => $this->group->id, 'financial_cycle_id' => $this->cycle->id]))
+        ->assertJsonPath('data.cycle.name', 'FY 2025/26')->assertJsonPath('data.summary.shares', 6);
+
+    $this->actingAs($this->plain)->getJson(route('reports.group-statement', ['group_id' => $this->group->id]))->assertOk()
+        ->assertJsonCount(1, 'data.rows')->assertJsonPath('data.summary.shares', 5);
+    $this->actingAs($this->outsider)->getJson(route('reports.group-statement', ['group_id' => $this->group->id]))->assertForbidden();
+});
+
+test('the group statement exports a summary and the chosen member columns', function () {
+    $file = $this->actingAs($this->chair)->get(route('reports.group-statement', ['group_id' => $this->group->id, 'format' => 'xlsx', 'columns' => ['name', 'shares', 'loans_balance']]))->assertOk();
+    $rows = array_values(XlsxReader::rows($file->baseResponse->getFile()->getPathname()));
+    $labels = collect($rows)->pluck(0);
+
+    expect($labels)->toContain('SUMMARY', 'Shares held', 'Fund: Jamii', 'Loans balance', 'MEMBERS', 'Name', $this->plainMember->name, 'Total')
+        ->and(collect($rows)->firstWhere(0, 'Name'))->toBe(['Name', 'Shares', 'Loans balance']);
 });

@@ -33,6 +33,7 @@ return [
             ['label' => 'Groups', 'icon' => 'bi-people', 'route' => 'groups.index', 'params' => ['scope' => 'all']],
             ['label' => 'Group Types', 'icon' => 'bi-diagram-3', 'route' => 'group-types.index'],
             ['label' => 'Relations', 'icon' => 'bi-heart', 'route' => 'relations.index'],
+            ['label' => 'Site Settings', 'icon' => 'bi-sliders', 'route' => 'site-settings.index'],
             ['label' => 'System Roles', 'icon' => 'bi-person-lock', 'route' => null],
         ],
     ],
@@ -100,6 +101,7 @@ return [
             'icon' => 'bi-file-earmark-bar-graph',
             'color' => 'text-danger',
             'items' => [
+                ['label' => 'Group Statement', 'icon' => 'bi-journal-text', 'route' => 'reports.group-statement'],
                 ['label' => 'Member Statement', 'icon' => 'bi-person-lines-fill', 'route' => 'reports.member-statement'],
                 ['label' => 'Monthly Shares', 'icon' => 'bi-pie-chart', 'route' => 'reports.monthly-shares'],
                 ['label' => 'Monthly Contributions', 'icon' => 'bi-wallet2', 'route' => 'reports.monthly-contributions'],

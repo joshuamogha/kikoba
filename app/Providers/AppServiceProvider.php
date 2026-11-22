@@ -2,11 +2,13 @@
 
 namespace App\Providers;
 
+use App\Models\SettingManagement\SiteSetting;
 use App\Models\UserManagement\Group;
 use App\Models\UserManagement\User;
 use App\Policies\UserManagement\GroupPolicy;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -25,6 +27,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Paginator::useBootstrapFive();
+
+        View::composer(['backend.*', 'auth.*', 'partials.*', 'landing', 'welcome'], fn ($view) => $view->with('site', SiteSetting::current()));
 
         Gate::policy(Group::class, GroupPolicy::class);
 
