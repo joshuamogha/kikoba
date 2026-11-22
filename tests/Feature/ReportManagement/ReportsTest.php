@@ -313,6 +313,10 @@ test('the group statement totals shares, every fund, fines and loans, and each m
         ->and($summary['total_contributions'])->toBe(55000)
         ->and($summary['fines'])->toBe(['issued' => 3000, 'paid' => 1000, 'balance' => 2000])
         ->and($summary['loans']['principal'])->toBe(100000)->and($summary['loans']['paid'])->toBe(40000)->and($summary['loans']['balance'])->toBe(75000)
+        ->and($report->json('data.profit.fines'))->toBe(['current' => 1000, 'expected' => 2000, 'total' => 3000])
+        ->and($report->json('data.profit.loan_interest.total'))->toBe(15000)
+        ->and($report->json('data.profit.loan_interest.current') + $report->json('data.profit.loan_interest.expected'))->toEqual(15000)
+        ->and($report->json('data.profit.all.current'))->toBe($report->json('data.profit.fines.current') + $report->json('data.profit.loans.current'))
         ->and($report->json('data.checks.hisa_difference'))->toBe(0)
         ->and($plain['shares'])->toBe(5)->and($plain['total_contributions'])->toBe(50000)->and($plain['fines_paid'])->toBe(1000);
 

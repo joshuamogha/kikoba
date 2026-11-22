@@ -29,6 +29,22 @@
                 <div class="col-6 col-md-3"><div class="border rounded p-2 h-100"><div class="small text-muted">Loans balance</div><div class="fs-4 fw-semibold">{{ money(report.summary.loans.balance) }}</div><div class="small">{{ report.summary.loans.active }} active &middot; {{ report.summary.loans.overdue }} overdue &middot; {{ report.summary.loans.completed }} completed</div></div></div>
             </div>
 
+            <h5>Profit</h5>
+            <div class="table-responsive mb-4">
+                <table class="table table-bordered table-sm align-middle mb-0 report-table">
+                    <thead><tr><th>Source</th><th class="text-end">Current (received)</th><th class="text-end">Expected (still to come)</th><th class="text-end">Total</th></tr></thead>
+                    <tbody>
+                        <tr v-for="line in profitLines" :key="line.key" :class="{ 'fw-semibold table-light': line.bold }">
+                            <td :class="{ 'ps-4': line.indent }">{{ line.label }}</td>
+                            <td class="text-end">{{ money(report.profit[line.key].current) }}</td>
+                            <td class="text-end">{{ money(report.profit[line.key].expected) }}</td>
+                            <td class="text-end">{{ money(report.profit[line.key].total) }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h5>Members</h5>
             <div class="table-responsive">
                 <table class="table table-bordered table-sm align-middle mb-0 report-table text-nowrap">
                     <thead>
@@ -64,7 +80,16 @@ export default {
     mixins: [reportPage],
 
     data() {
-        return { endpoint: "/reports/group-statement" };
+        return {
+            endpoint: "/reports/group-statement",
+            profitLines: [
+                { key: "fines", label: "Fines (paid fines are profit)" },
+                { key: "loan_interest", label: "Loan interest", indent: true },
+                { key: "loan_penalties", label: "Loan penalties", indent: true },
+                { key: "loans", label: "Profit from loans", bold: true },
+                { key: "all", label: "Total profit", bold: true },
+            ],
+        };
     },
 };
 </script>

@@ -102,6 +102,12 @@ class GroupStatementController extends Controller
             ['Loans paid', $loans['paid']],
             ['Loans balance', $loans['balance']],
             ['Loans (number)', $loans['count']],
+            ...collect(['fines' => 'Fines', 'loan_interest' => 'Loan interest', 'loan_penalties' => 'Loan penalties', 'loans' => 'Loan profit (interest and penalties)', 'all' => 'Total profit'])
+                ->flatMap(fn (string $label, string $key) => [
+                    ["Profit - {$label}: current", $statement['profit'][$key]['current']],
+                    ["Profit - {$label}: expected", $statement['profit'][$key]['expected']],
+                    ["Profit - {$label}: total", $statement['profit'][$key]['total']],
+                ])->all(),
             ['Shares fund minus share records', $statement['checks']['hisa_difference']],
         ]];
     }
