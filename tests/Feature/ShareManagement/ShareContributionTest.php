@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\PaymentManagement\ResolveFinancialCycle;
 use App\Models\PaymentManagement\PaymentTransaction;
 use App\Models\ShareManagement\MemberShareTransaction;
 use App\Models\UserManagement\User;
@@ -187,4 +188,64 @@ test('a purchase already recorded by hand counts as imported', function () {
         ->assertJsonPath('data.imported', 0)->assertJsonCount(1, 'data.skipped');
 
     expect(MemberShareTransaction::query()->count())->toBe(1);
+});
+
+test('approving a contribution to the Shares fund records the shares without a second contribution', function () {
+    $fund = addSharesFund($this);
+    $social = createFundFor($this->group, ['name' => 'Social Fund', 'code' => 'SOC']);
+
+    $id = $this->actingAs($this->chair)->postJson(route('contributions.store'), [
+        'group_id' => $this->group->id,
+        'group_member_id' => $this->member->id,
+        'payment_method_id' => $this->group->paymentMethods()->value('id'),
+        'contribution_date' => now()->toDateString(),
+        'items' => [['group_fund_id' => $fund->id, 'amount' => 15000], ['group_fund_id' => $social->id, 'amount' => 2000]],
+    ])->assertCreated()->json('data.id');
+
+    expect(MemberShareTransaction::query()->count())->toBe(0);
+
+    $this->actingAs($this->chair)->patchJson(route('contributions.approve', $id))->assertOk();
+
+    $purchase = MemberShareTransaction::query()->sole();
+
+    expect($purchase->number_of_shares)->toBe(3)
+        ->and($purchase->contribution_id)->toBe($id)
+        ->and($purchase->group_member_id)->toBe($this->member->id)
+        ->and($this->group->contributions()->count())->toBe(1);
+});
+
+test('a Shares fund amount that is not a whole number of shares is rejected', function () {
+    $fund = addSharesFund($this);
+
+    $this->actingAs($this->chair)->postJson(route('contributions.store'), [
+        'group_id' => $this->group->id,
+        'group_member_id' => $this->member->id,
+        'payment_method_id' => $this->group->paymentMethods()->value('id'),
+        'contribution_date' => now()->toDateString(),
+        'items' => [['group_fund_id' => $fund->id, 'amount' => 12000]],
+    ])->assertUnprocessable()->assertJsonValidationErrors('items.0.amount');
+});
+
+test('syncing shares records the shares for approved Shares fund contributions that have none', function () {
+    $fund = addSharesFund($this);
+    $methodId = $this->group->paymentMethods()->value('id');
+    $make = fn (float $amount) => tap($this->group->contributions()->forceCreate([
+        'financial_cycle_id' => app(ResolveFinancialCycle::class)->handle($this->group, now(), $this->chair->id)->id,
+        'group_member_id' => $this->member->id, 'contribution_number' => 'X-'.uniqid(), 'contribution_date' => now()->toDateString(),
+        'total_amount' => $amount, 'payment_method_id' => $methodId, 'status' => 'approved', 'received_by' => $this->chair->id,
+        'approved_by' => $this->chair->id, 'approved_at' => now(),
+    ]), fn ($contribution) => $contribution->contributionItems()->forceCreate([
+        'group_fund_id' => $fund->id, 'amount' => $amount, 'period_start' => now()->startOfMonth()->toDateString(), 'period_end' => now()->endOfMonth()->toDateString(),
+    ]));
+
+    $good = $make(10000);
+    $make(7000);
+
+    $this->actingAs($this->chair)->postJson(route('contributions.sync-shares'), ['group_id' => $this->group->id])
+        ->assertOk()->assertJsonPath('data.synced', 1)->assertJsonPath('data.skipped', 1);
+
+    expect(MemberShareTransaction::query()->sole()->contribution_id)->toBe($good->id);
+
+    $this->actingAs($this->chair)->postJson(route('contributions.sync-shares'), ['group_id' => $this->group->id])->assertJsonPath('data.synced', 0);
+    $this->actingAs($this->member->user)->postJson(route('contributions.sync-shares'), ['group_id' => $this->group->id])->assertForbidden();
 });

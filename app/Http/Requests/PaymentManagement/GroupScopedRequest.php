@@ -2,10 +2,13 @@
 
 namespace App\Http\Requests\PaymentManagement;
 
+use App\Actions\ShareManagement\RecordSharePurchase;
+use App\Models\PaymentManagement\GroupFund;
 use App\Models\UserManagement\Group;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Exists;
+use Illuminate\Validation\Validator;
 
 /**
  * Base for payment-management writes: the group comes from the group_id input and only its leaders and Treasurer may write.
@@ -38,6 +41,40 @@ abstract class GroupScopedRequest extends FormRequest
     public function group(): Group
     {
         return $this->resolvedGroup ??= Group::query()->findOrFail($this->integer('group_id'));
+    }
+
+    /**
+     * An amount for the Shares fund must buy a whole number of shares at the group's share price. Checks the items of a single
+     * contribution and the items of every row of a bulk request.
+     *
+     * @return array<int, callable>
+     */
+    public function after(): array
+    {
+        return [function (Validator $validator): void {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            $lists = ['items' => $this->input('items')];
+
+            foreach ((array) $this->input('rows') as $row => $data) {
+                $lists["rows.{$row}.items"] = $data['items'] ?? null;
+            }
+
+            $price = (float) $this->group()->ensureGroupSetting()->share_price;
+
+            foreach ($lists as $prefix => $items) {
+                foreach (is_array($items) ? $items : [] as $index => $item) {
+                    $isSharesFund = GroupFund::query()->whereKey($item['group_fund_id'] ?? 0)
+                        ->whereHas('fundType', fn ($type) => $type->where('code', 'SHR'))->exists();
+
+                    if ($isSharesFund && $price > 0 && app(RecordSharePurchase::class)->sharesFor($this->group(), (float) $item['amount']) === null) {
+                        $validator->errors()->add("{$prefix}.{$index}.amount", 'The Shares amount must be a whole number of shares at the share price of '.number_format($price, 2).'.');
+                    }
+                }
+            }
+        }];
     }
 
     /**

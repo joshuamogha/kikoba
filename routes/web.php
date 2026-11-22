@@ -119,6 +119,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('reports/loan-statement', [LoanStatementController::class, 'index'])->name('reports.loan-statement');
     Route::get('contributions/import/template', [ContributionImportController::class, 'template'])->name('contributions.template');
     Route::post('contributions/import', [ContributionImportController::class, 'import'])->name('contributions.import');
+    Route::post('contributions/bulk', [ContributionController::class, 'storeMany'])->name('contributions.store-many');
+    Route::post('contributions/sync-shares', [ContributionController::class, 'syncShares'])->name('contributions.sync-shares');
+    Route::post('contributions/approve-many', [ContributionController::class, 'approveMany'])->name('contributions.approve-many');
     Route::resource('contributions', ContributionController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
     Route::patch('contributions/{contribution}/approve', [ContributionController::class, 'approve'])->name('contributions.approve');
 

@@ -2,11 +2,7 @@
     <div class="card">
         <div class="card-header">
             <PaymentToolbar title="Loan repayments" :groups="groups" :group-id="groupId" :statuses="['pending', 'approved']"
-                :can-manage="canManage" add-label="Repayment" @group="onGroup" @search="onSearch" @status="onStatus" @add="openAdd" />
-        </div>
-        <div v-if="canManage" class="card-body py-2 border-bottom d-flex justify-content-between align-items-center">
-            <span class="small text-muted">Past repayments on paper or in a spreadsheet? Import them against the loan numbers.</span>
-            <button @click="importModal = true" class="btn btn-outline-primary btn-sm"><i class="bi bi-upload"></i> Import</button>
+                :can-manage="canManage" add-label="Repayment" import-label="Import" @import="importModal = true" @group="onGroup" @search="onSearch" @status="onStatus" @add="openAdd" />
         </div>
         <div v-if="totals" class="card-body border-bottom">
             <div class="row text-center">

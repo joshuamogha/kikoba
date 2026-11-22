@@ -90,3 +90,50 @@ test('members, methods and funds of another group are rejected and amounts must 
         'items' => [['group_fund_id' => createFundFor($this->other)->id, 'amount' => 0]],
     ]))->assertUnprocessable()->assertJsonValidationErrors(['group_member_id', 'payment_method_id', 'items.0.group_fund_id', 'items.0.amount']);
 });
+
+test('contributions can be added for many members at once', function () {
+    $payload = [
+        'group_id' => $this->group->id,
+        'payment_method_id' => $this->group->paymentMethods()->value('id'),
+        'contribution_date' => now()->toDateString(),
+        'rows' => [
+            ['group_member_id' => $this->plainMember->id, 'items' => [['group_fund_id' => $this->savings->id, 'amount' => 20000], ['group_fund_id' => $this->social->id, 'amount' => 5000]]],
+            ['group_member_id' => $this->treasurerMember->id, 'items' => [['group_fund_id' => $this->savings->id, 'amount' => 10000]]],
+        ],
+    ];
+
+    $this->actingAs($this->treasurer)->postJson(route('contributions.store-many'), $payload)->assertCreated()->assertJsonPath('data.count', 2);
+
+    expect($this->group->contributions()->where('status', 'pending')->count())->toBe(2)
+        ->and((float) $this->group->contributions()->sum('total_amount'))->toBe(35000.0);
+
+    $this->actingAs($this->plain)->postJson(route('contributions.store-many'), $payload)->assertForbidden();
+});
+
+test('a batch with a member twice is rejected and nothing is recorded', function () {
+    $row = ['group_member_id' => $this->plainMember->id, 'items' => [['group_fund_id' => $this->savings->id, 'amount' => 1000]]];
+
+    $this->actingAs($this->chair)->postJson(route('contributions.store-many'), [
+        'group_id' => $this->group->id,
+        'payment_method_id' => $this->group->paymentMethods()->value('id'),
+        'contribution_date' => now()->toDateString(),
+        'rows' => [$row, $row],
+    ])->assertUnprocessable()->assertJsonValidationErrors('rows.1.group_member_id');
+
+    expect($this->group->contributions()->count())->toBe(0);
+});
+
+test('many pending contributions can be approved at once', function () {
+    $ids = collect([$this->plainMember, $this->treasurerMember])->map(fn ($member) => $this->actingAs($this->chair)
+        ->postJson(route('contributions.store'), contributionPayload($this, ['group_member_id' => $member->id]))->json('data.id'));
+    $approvedId = $this->actingAs($this->chair)->postJson(route('contributions.store'), contributionPayload($this))->json('data.id');
+    $this->actingAs($this->chair)->patchJson(route('contributions.approve', $approvedId))->assertOk();
+
+    $this->actingAs($this->plain)->postJson(route('contributions.approve-many'), ['group_id' => $this->group->id, 'ids' => $ids->all()])->assertForbidden();
+
+    $this->actingAs($this->chair)->postJson(route('contributions.approve-many'), ['group_id' => $this->group->id, 'ids' => [...$ids, $approvedId]])
+        ->assertOk()->assertJsonPath('data.approved', 2)->assertJsonPath('data.skipped', 1);
+
+    expect($this->group->contributions()->where('status', 'pending')->count())->toBe(0)
+        ->and($this->group->paymentTransactions()->count())->toBe(3);
+});

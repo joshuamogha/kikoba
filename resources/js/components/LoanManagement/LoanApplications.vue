@@ -2,13 +2,12 @@
     <div class="card">
         <div class="card-header">
             <PaymentToolbar title="Loan applications" :groups="groups" :group-id="groupId" :statuses="['submitted', 'approved', 'rejected', 'cancelled']"
-                :can-manage="true" add-label="Apply" @group="onGroup" @search="onSearch" @status="onStatus" @add="openAdd" />
+                :can-manage="true" add-label="Apply" import-label="Import loans" :can-import="canManage" @import="importModal = true" @group="onGroup" @search="onSearch" @status="onStatus" @add="openAdd" />
         </div>
         <div v-if="canManage" class="card-body py-2 border-bottom d-flex justify-content-between align-items-center">
             <span class="small text-muted">Already gave a loan? Record it in one step: application, guarantors (optional) and loan.</span>
             <div class="btn-group btn-group-sm">
                 <button @click="openRecord" class="btn btn-outline-primary"><i class="bi bi-journal-plus"></i> Record existing loan</button>
-                <button @click="importModal = true" class="btn btn-outline-primary"><i class="bi bi-upload"></i> Import loans</button>
             </div>
         </div>
         <div class="card-body p-0">

@@ -66,11 +66,11 @@ class RecordSharePurchase
      *
      * @throws InvalidArgumentException when the shares do not fit in the next MAX_MONTHS months
      */
-    public function handle(Group $group, GroupMember $member, User $approver, int $shares, Carbon $date, Carbon $startPeriod, ?string $reference, float $price, ?int $maximumPerMonth, ?Carbon $createdAt = null): array
+    public function handle(Group $group, GroupMember $member, User $approver, int $shares, Carbon $date, Carbon $startPeriod, ?string $reference, float $price, ?int $maximumPerMonth, ?Carbon $createdAt = null, ?Contribution $contribution = null): array
     {
         $allocations = $this->allocate($member, $shares, $startPeriod, $maximumPerMonth);
 
-        return DB::transaction(function () use ($group, $member, $approver, $allocations, $date, $reference, $price, $createdAt): array {
+        return DB::transaction(function () use ($group, $member, $approver, $allocations, $date, $reference, $price, $createdAt, $contribution): array {
             $records = [];
 
             foreach ($allocations as ['period' => $period, 'shares' => $count]) {
@@ -87,19 +87,77 @@ class RecordSharePurchase
                     'status' => 'approved',
                     'reference' => $reference,
                     'approved_by' => $approver->id,
+                    'contribution_id' => $contribution?->id,
                 ];
 
                 $transaction = $group->memberShareTransactions()->forceCreate($createdAt === null ? $attributes : [...$attributes, 'created_at' => $createdAt, 'updated_at' => $createdAt]);
 
                 $transaction->withoutTimestamps(fn () => $transaction->update(['transaction_number' => sprintf('SHR-%d-%06d', $date->year, $transaction->id)]));
 
-                $this->recordContribution($transaction, $approver, $createdAt);
+                if ($contribution === null) {
+                    $this->recordContribution($transaction, $approver, $createdAt);
+                }
 
                 $records[] = $transaction;
             }
 
             return $records;
         });
+    }
+
+    /**
+     * How many whole shares an amount buys at the group's share price, or null when the price is not set or the amount is not an
+     * exact multiple of it.
+     */
+    public function sharesFor(Group $group, float $amount): ?int
+    {
+        $price = (float) $group->ensureGroupSetting()->share_price;
+
+        if ($price <= 0) {
+            return null;
+        }
+
+        $shares = (int) round($amount / $price);
+
+        return $shares > 0 && abs($shares * $price - $amount) < 0.005 ? $shares : null;
+    }
+
+    /**
+     * Record the shares bought by an approved contribution that has an item in the Shares fund. The share records link to the
+     * contribution, so no second contribution is made. Nothing is recorded when it has no such item or one that is not a whole
+     * number of shares.
+     *
+     * @return array<int, MemberShareTransaction>
+     *
+     * @throws InvalidArgumentException when the shares do not fit in the next MAX_MONTHS months
+     */
+    public function recordFromContribution(Contribution $contribution, User $approver): array
+    {
+        $group = $contribution->group;
+        $item = $contribution->contributionItems()
+            ->whereHas('groupFund.fundType', fn ($type) => $type->where('code', 'SHR'))
+            ->first();
+
+        $shares = $item === null ? null : $this->sharesFor($group, (float) $item->amount);
+
+        if ($shares === null || $contribution->shareTransactions()->exists()) {
+            return [];
+        }
+
+        $setting = $group->ensureGroupSetting();
+
+        return $this->handle(
+            $group,
+            $contribution->groupMember,
+            $approver,
+            $shares,
+            $contribution->contribution_date,
+            $item->period_start ?? $contribution->contribution_date,
+            $contribution->external_reference,
+            (float) $setting->share_price,
+            $setting->maximum_shares,
+            contribution: $contribution,
+        );
     }
 
     /**

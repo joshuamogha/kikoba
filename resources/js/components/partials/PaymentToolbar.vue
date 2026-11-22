@@ -20,10 +20,13 @@
                 </option>
             </select>
         </div>
-        <div class="col-md-2 text-end">
-            <button v-if="canManage && addLabel" @click="$emit('add')" class="btn btn-primary btn-sm">
-                <i class="bi bi-plus-lg"></i> {{ addLabel }}
-            </button>
+        <div class="col-md-2 text-end text-nowrap">
+            <div class="btn-group btn-group-sm">
+                <button v-if="canManage && addLabel" @click="$emit('add')" class="btn btn-primary"><i class="bi bi-plus-lg"></i> {{ addLabel }}</button>
+                <slot v-if="canManage" name="actions" />
+                <button v-if="canManage && bulkLabel" @click="$emit('bulk')" class="btn btn-outline-primary"><i class="bi bi-people"></i> {{ bulkLabel }}</button>
+                <button v-if="importAllowed && importLabel" @click="$emit('import')" class="btn btn-outline-primary"><i class="bi bi-upload"></i> {{ importLabel }}</button>
+            </div>
         </div>
     </div>
 </template>
@@ -37,8 +40,17 @@ export default {
         statuses: { type: Array, default: () => [] },
         canManage: { type: Boolean, default: false },
         addLabel: { type: String, default: "" },
+        bulkLabel: { type: String, default: "" },
+        importLabel: { type: String, default: "" },
+        canImport: { type: Boolean, default: null },
     },
 
-    emits: ["group", "search", "status", "add"],
+    computed: {
+        importAllowed() {
+            return this.canImport ?? this.canManage;
+        },
+    },
+
+    emits: ["group", "search", "status", "add", "bulk", "import"],
 };
 </script>

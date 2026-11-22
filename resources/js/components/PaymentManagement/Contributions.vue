@@ -2,11 +2,18 @@
     <div class="card">
         <div class="card-header">
             <PaymentToolbar title="Contributions" :groups="groups" :group-id="groupId" :statuses="['pending', 'approved']"
-                :can-manage="canManage" add-label="Contribution" @group="onGroup" @search="onSearch" @status="onStatus" @add="openAdd" />
+                :can-manage="canManage" add-label="Contribution" bulk-label="Many members" import-label="Import" @bulk="openBulk" @import="importModal = true" @group="onGroup" @search="onSearch" @status="onStatus" @add="openAdd">
+                <template v-slot:actions>
+                    <button @click="syncShares" class="btn btn-outline-primary" :disabled="saving" title="Record member shares for approved Hisa/Shares contributions that have none"><i class="bi bi-arrow-repeat"></i> Sync shares</button>
+                </template>
+            </PaymentToolbar>
         </div>
-        <div v-if="canManage" class="card-body py-2 border-bottom d-flex justify-content-between align-items-center">
-            <span class="small text-muted">Have payments on paper or in a spreadsheet? Import them for one fund at a time.</span>
-            <button @click="importModal = true" class="btn btn-outline-primary btn-sm"><i class="bi bi-upload"></i> Import</button>
+        <div v-if="canManage && selected.length" class="card-body py-2 border-bottom d-flex justify-content-between align-items-center">
+            <span class="small">{{ selected.length }} pending {{ selected.length === 1 ? "contribution" : "contributions" }} selected</span>
+            <div class="btn-group btn-group-sm">
+                <button @click="selected = []" class="btn btn-outline-secondary">Clear</button>
+                <button @click="approveSelected" class="btn btn-success" :disabled="saving"><i class="bi bi-check-all"></i> Approve selected</button>
+            </div>
         </div>
         <div class="card-body border-bottom pb-1">
             <ListFilters :model-value="filters" :members="filterOptions.members" :cycles="filterOptions.cycles" :funds="filterOptions.funds" @update:modelValue="onFilters" />
@@ -26,10 +33,11 @@
         <div class="card-body p-0">
             <table class="table table-striped mb-0 align-middle">
                 <thead>
-                    <tr><th>#</th><th>Number</th><th>Member</th><th>Funds</th><th class="text-end">Total</th><th>Month</th><th>Date paid</th><th>Status</th><th>Action</th></tr>
+                    <tr><th v-if="canManage" style="width: 1%"><input type="checkbox" class="form-check-input" :checked="allSelected" :disabled="!pendingIds.length" @change="toggleAll" title="Select all pending on this page" /></th><th>#</th><th>Number</th><th>Member</th><th>Funds</th><th class="text-end">Total</th><th>Month</th><th>Date paid</th><th>Status</th><th>Action</th></tr>
                 </thead>
                 <tbody>
                     <tr v-for="(item, index) in items" :key="item.id">
+                        <td v-if="canManage"><input v-if="item.status === 'pending'" type="checkbox" class="form-check-input" :value="item.id" v-model="selected" /></td>
                         <td>{{ (meta.from || 1) + index }}</td>
                         <td>{{ item.contribution_number }}</td>
                         <td>{{ item.member.name }}<div class="small text-muted">{{ item.member.member_number }}</div></td>
@@ -50,7 +58,7 @@
                             </div>
                         </td>
                     </tr>
-                    <tr v-if="!items.length"><td :colspan="9" class="text-center text-muted py-4">{{ emptyMessage }}</td></tr>
+                    <tr v-if="!items.length"><td :colspan="canManage ? 10 : 9" class="text-center text-muted py-4">{{ emptyMessage }}</td></tr>
                 </tbody>
             </table>
         </div>
@@ -84,6 +92,40 @@
             </template>
             <template v-slot:footer>
                 <button @click="save" class="btn btn-primary" :disabled="saving">{{ form.id ? "Update" : "Save" }}</button>
+            </template>
+        </LargeModal>
+
+        <LargeModal v-if="bulkModal" @close="bulkModal = false">
+            <template v-slot:header><h4>Add contributions for many members</h4></template>
+            <template v-slot:body>
+                <div class="row">
+                    <div class="col-md-4"><BaseSelect v-model="bulk.payment_method_id" label="Payment method" :options="methodChoices" :error="errors.payment_method_id?.[0]" /></div>
+                    <div class="col-md-4"><DatePicker v-model="bulk.contribution_date" label="Date paid" :error="errors.contribution_date?.[0]" /></div>
+                    <div class="col-md-4"><MonthPicker v-model="bulk.period" label="For month" :error="errors.period?.[0]" /></div>
+                </div>
+                <p class="small text-muted mt-2 mb-1">Enter the amount each member paid to each fund. Members left empty are skipped. Every contribution is recorded as pending.</p>
+                <div v-if="!fundChoices.length" class="alert alert-warning py-2">This group has no active funds yet. <a href="/group-funds">Add a fund</a> first.</div>
+                <div class="table-responsive" style="max-height: 50vh">
+                    <table class="table table-sm table-bordered align-middle mb-0">
+                        <thead class="table-light" style="position: sticky; top: 0">
+                            <tr><th>Member</th><th v-for="fund in fundChoices" :key="fund.value">{{ fund.label }}</th><th>Reference</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="member in memberChoices" :key="member.value">
+                                <td class="text-nowrap">{{ member.label }}</td>
+                                <td v-for="fund in fundChoices" :key="fund.value">
+                                    <input v-model="bulk.amounts[member.value][fund.value]" type="number" min="0" step="0.01" class="form-control form-control-sm" style="min-width: 100px" />
+                                </td>
+                                <td><input v-model="bulk.references[member.value]" type="text" class="form-control form-control-sm" style="min-width: 100px" /></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div v-if="bulkError" class="text-danger small mt-2">{{ bulkError }}</div>
+                <p class="small text-muted mt-2 mb-0">{{ bulkRows.length }} {{ bulkRows.length === 1 ? "member" : "members" }}, total {{ money(bulkTotal) }}</p>
+            </template>
+            <template v-slot:footer>
+                <button @click="saveBulk" class="btn btn-primary" :disabled="saving || !bulkRows.length">Save {{ bulkRows.length || "" }}</button>
             </template>
         </LargeModal>
 
@@ -144,6 +186,9 @@ export default {
             detail: null,
             deleting: null,
             importModal: false,
+            bulkModal: false,
+            bulk: { amounts: {}, references: {} },
+            selected: [],
             importColumns: [
                 { name: "phone_number", required: true, description: "The member's phone number: it identifies the member. Spaces and dashes are ignored.", example: "0712345678" },
                 { name: "amount", required: true, description: "The amount the member paid to the chosen fund.", example: "20000" },
@@ -153,7 +198,38 @@ export default {
         };
     },
 
+    watch: {
+        items() {
+            this.selected = [];
+        },
+    },
+
     computed: {
+        pendingIds() {
+            return this.items.filter((item) => item.status === "pending").map((item) => item.id);
+        },
+        allSelected() {
+            return this.pendingIds.length > 0 && this.pendingIds.every((id) => this.selected.includes(id));
+        },
+        bulkRows() {
+            return (this.options.members ?? [])
+                .map((member) => ({
+                    group_member_id: member.value,
+                    external_reference: this.bulk.references[member.value] || null,
+                    items: Object.entries(this.bulk.amounts[member.value] ?? {})
+                        .filter(([, amount]) => Number(amount) > 0)
+                        .map(([fundId, amount]) => ({ group_fund_id: Number(fundId), amount })),
+                }))
+                .filter((row) => row.items.length);
+        },
+        bulkTotal() {
+            return this.bulkRows.reduce((sum, row) => sum + row.items.reduce((inner, item) => inner + Number(item.amount), 0), 0);
+        },
+        bulkError() {
+            const key = Object.keys(this.errors).find((name) => name.startsWith("rows"));
+
+            return key ? this.errors[key][0] : "";
+        },
         importFields() {
             return [
                 { name: "group_fund_id", label: "Fund", type: "select", required: true, placeholder: "Choose the fund...", options: this.options.funds ?? [] },
@@ -235,6 +311,69 @@ export default {
             const payload = { ...rest, items, group_id: this.groupId };
 
             this.submit(id ? axios.put(`${this.endpoint}/${id}`, payload) : axios.post(this.endpoint, payload));
+        },
+
+        openBulk() {
+            this.bulk = {
+                payment_method_id: "",
+                contribution_date: new Date().toISOString().slice(0, 10),
+                period: new Date().toISOString().slice(0, 7),
+                amounts: Object.fromEntries((this.options.members ?? []).map((member) => [member.value, {}])),
+                references: {},
+            };
+            this.errors = {};
+            this.bulkModal = true;
+        },
+
+        saveBulk() {
+            this.saving = true;
+            this.errors = {};
+
+            axios
+                .post(`${this.endpoint}/bulk`, {
+                    group_id: this.groupId,
+                    payment_method_id: this.bulk.payment_method_id,
+                    contribution_date: this.bulk.contribution_date,
+                    period: this.bulk.period,
+                    rows: this.bulkRows,
+                })
+                .then((response) => {
+                    this.bulkModal = false;
+                    this.$toast.success(response.data.message);
+                    this.load(1);
+                })
+                .catch(this.handleError)
+                .finally(() => (this.saving = false));
+        },
+
+        syncShares() {
+            this.saving = true;
+
+            axios
+                .post(`${this.endpoint}/sync-shares`, { group_id: this.groupId })
+                .then((response) => {
+                    this.$toast.success(response.data.message);
+                    this.load(this.meta.current_page);
+                })
+                .catch(this.handleError)
+                .finally(() => (this.saving = false));
+        },
+
+        toggleAll() {
+            this.selected = this.allSelected ? [] : [...this.pendingIds];
+        },
+
+        approveSelected() {
+            this.saving = true;
+
+            axios
+                .post(`${this.endpoint}/approve-many`, { group_id: this.groupId, ids: this.selected })
+                .then((response) => {
+                    this.$toast.success(response.data.message);
+                    this.load(this.meta.current_page);
+                })
+                .catch(this.handleError)
+                .finally(() => (this.saving = false));
         },
 
         approve(item) {

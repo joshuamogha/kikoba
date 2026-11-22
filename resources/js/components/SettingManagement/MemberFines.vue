@@ -2,14 +2,13 @@
     <div class="card">
         <div class="card-header">
             <PaymentToolbar title="Member fines" :groups="groups" :group-id="groupId" :statuses="['pending', 'partial', 'paid', 'waived']"
-                :can-manage="canManage" add-label="Fine" @group="onGroup" @search="onSearch" @status="onStatus" @add="openAdd" />
+                :can-manage="canManage" add-label="Fine" import-label="Import" @import="importModal = true" @group="onGroup" @search="onSearch" @status="onStatus" @add="openAdd" />
         </div>
         <div class="card-body py-2 border-bottom d-flex justify-content-between align-items-center">
             <span v-if="canManage" class="small text-muted">Have fines on paper or in a spreadsheet? Import them in one file.</span>
             <span v-else></span>
             <div class="btn-group btn-group-sm">
                 <a :href="exportUrl" class="btn btn-outline-secondary" title="Download each member's total fine, paid fine and balance, using the current filters"><i class="bi bi-download"></i> Export</a>
-                <button v-if="canManage" @click="importModal = true" class="btn btn-outline-primary"><i class="bi bi-upload"></i> Import</button>
             </div>
         </div>
         <div class="card-body border-bottom pb-1">
