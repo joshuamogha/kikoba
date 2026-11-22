@@ -4,7 +4,7 @@
             <PaymentToolbar title="Contributions" :groups="groups" :group-id="groupId" :statuses="['pending', 'approved']"
                 :can-manage="canManage" add-label="Contribution" bulk-label="Many members" import-label="Import" @bulk="openBulk" @import="importModal = true" @group="onGroup" @search="onSearch" @status="onStatus" @add="openAdd">
                 <template v-slot:actions>
-                    <button @click="syncShares" class="btn btn-outline-primary" :disabled="saving" title="Record member shares for approved Hisa/Shares contributions that have none"><i class="bi bi-arrow-repeat"></i> Sync shares</button>
+                    <button @click="syncShares" class="btn btn-secondary btn-sm" :disabled="saving" title="Record member shares for approved Hisa/Shares contributions that have none"><i class="bi bi-arrow-repeat"></i> Sync shares</button>
                 </template>
             </PaymentToolbar>
         </div>
@@ -30,8 +30,8 @@
                 </div>
             </div>
         </div>
-        <div class="card-body p-0">
-            <table class="table table-striped mb-0 align-middle">
+        <div class="card-body p-0 table-responsive">
+            <table class="table table-striped mb-0 align-middle text-nowrap">
                 <thead>
                     <tr><th v-if="canManage" style="width: 1%"><input type="checkbox" class="form-check-input" :checked="allSelected" :disabled="!pendingIds.length" @change="toggleAll" title="Select all pending on this page" /></th><th>#</th><th>Number</th><th>Member</th><th>Funds</th><th class="text-end">Total</th><th>Month</th><th>Date paid</th><th>Status</th><th>Action</th></tr>
                 </thead>

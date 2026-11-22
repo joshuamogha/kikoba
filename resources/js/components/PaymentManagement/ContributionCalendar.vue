@@ -9,10 +9,16 @@
                         <option v-for="group in groups" :key="group.value" :value="group.value">{{ group.label }}</option>
                     </select>
                 </div>
-                <div class="col-md-4">
+                <div :class="type === 'contributions' ? 'col-md-2' : 'col-md-4'">
                     <select v-model="cycleId" @change="load" class="form-select" aria-label="Financial cycle">
                         <option v-if="!cycles.length" value="">No financial cycles yet</option>
                         <option v-for="cycle in cycles" :key="cycle.value" :value="cycle.value">{{ cycle.label }}</option>
+                    </select>
+                </div>
+                <div v-if="type === 'contributions'" class="col-md-2">
+                    <select v-model="fundId" @change="load" class="form-select" aria-label="Fund">
+                        <option value="">All funds</option>
+                        <option v-for="fund in funds" :key="fund.value" :value="fund.value">{{ fund.label }}</option>
                     </select>
                 </div>
                 <div class="col-md-2 text-end">
@@ -91,6 +97,8 @@ export default {
         return {
             groupId: this.fixedGroupId ?? initialGroup(this.groups),
             cycleId: "",
+            fundId: "",
+            funds: [],
             type: "contributions",
             types: [{ key: "contributions", label: "Contributions" }, { key: "shares", label: "Shares" }],
             cycles: [],
@@ -112,10 +120,11 @@ export default {
             }
 
             axios
-                .get("/contribution-calendar", { params: { group_id: this.groupId, financial_cycle_id: this.cycleId || undefined, type: this.type, group_member_id: this.memberId || undefined } })
+                .get("/contribution-calendar", { params: { group_id: this.groupId, financial_cycle_id: this.cycleId || undefined, group_fund_id: this.type === 'contributions' ? this.fundId || undefined : undefined, type: this.type, group_member_id: this.memberId || undefined } })
                 .then((response) => {
                     this.calendar = response.data.data;
                     this.cycles = response.data.cycles;
+                    this.funds = response.data.funds ?? [];
                     this.cycleId = this.calendar?.cycle.id ?? "";
                     this.loaded = true;
                 })
@@ -125,6 +134,7 @@ export default {
         onGroup(groupId) {
             this.groupId = groupId;
             this.cycleId = "";
+            this.fundId = "";
             rememberGroup(groupId);
             this.load();
         },

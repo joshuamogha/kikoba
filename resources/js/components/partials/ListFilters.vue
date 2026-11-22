@@ -1,13 +1,13 @@
 <template>
     <div class="row g-2 align-items-end">
-        <div v-if="members.length" class="col-md-3">
+        <div v-if="members.length" class="col-12 col-sm-6 col-lg-3">
             <MemberSearchable :model-value="modelValue.group_member_id ?? ''" label="" :options="members" placeholder="Filter by member..."
                 @update:modelValue="update('group_member_id', $event)" />
         </div>
-        <div class="col-md-2">
+        <div class="col-12 col-sm-6 col-lg-2">
             <MonthPicker :model-value="modelValue.month ?? ''" label="" placeholder="Filter by month" @update:modelValue="update('month', $event)" />
         </div>
-        <div v-if="funds.length" class="col-md-3">
+        <div v-if="funds.length" class="col-12 col-sm-6 col-lg-3">
             <div class="mb-2">
                 <select :value="modelValue.group_fund_id ?? ''" class="form-select" aria-label="Fund" @change="update('group_fund_id', $event.target.value)">
                     <option value="">All funds</option>
@@ -15,7 +15,7 @@
                 </select>
             </div>
         </div>
-        <div v-if="fineTypes.length" class="col-md-3">
+        <div v-if="fineTypes.length" class="col-12 col-sm-6 col-lg-3">
             <div class="mb-2">
                 <select :value="modelValue.fine_type_id ?? ''" class="form-select" aria-label="Fine type" @change="update('fine_type_id', $event.target.value)">
                     <option value="">All fine types</option>
@@ -23,7 +23,7 @@
                 </select>
             </div>
         </div>
-        <div v-if="cycles.length" class="col-md-3">
+        <div v-if="cycles.length" class="col-12 col-sm-6 col-lg-3">
             <div class="mb-2">
                 <select :value="modelValue.financial_cycle_id ?? ''" class="form-select" aria-label="Financial cycle" @change="update('financial_cycle_id', $event.target.value)">
                     <option value="">All financial cycles</option>
@@ -31,7 +31,7 @@
                 </select>
             </div>
         </div>
-        <div class="col-md-1">
+        <div class="col-12 col-sm-6 col-lg-1">
             <div class="mb-2">
                 <button v-if="hasFilters" type="button" class="btn btn-outline-secondary w-100" title="Clear filters" @click="$emit('update:modelValue', {})">
                     <i class="bi bi-x-lg"></i>

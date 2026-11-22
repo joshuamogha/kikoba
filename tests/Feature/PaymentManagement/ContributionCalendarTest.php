@@ -155,3 +155,25 @@ test('the cycle list puts open cycles first, then drafts, then closed ones, and 
     expect(collect($response->json('cycles'))->pluck('value')->all())->toBe([$this->cycle->id, $draft->id, $closed->id])
         ->and($response->json('data.cycle.id'))->toBe($this->cycle->id);
 });
+
+test('the calendar can be filtered by fund and measures short against that fund only', function () {
+    $social = createFundFor($this->group, ['name' => 'Social', 'code' => 'SOC', 'is_mandatory' => true, 'minimum_contribution' => 5000]);
+
+    payFor($this, $this->plainMember, '2026-03', 20000);
+    $id = $this->actingAs($this->chair)->postJson(route('contributions.store'), [
+        'group_id' => $this->group->id, 'group_member_id' => $this->plainMember->id, 'payment_method_id' => $this->group->paymentMethods()->value('id'),
+        'contribution_date' => '2026-04-10', 'period' => '2026-03', 'items' => [['group_fund_id' => $social->id, 'amount' => 3000]],
+    ])->json('data.id');
+    $this->actingAs($this->chair)->patchJson(route('contributions.approve', $id))->assertOk();
+
+    $all = calendarFor($this)->assertOk()->assertJsonPath('data.expected', 25000)->assertJsonCount(2, 'funds');
+    expect(collect($all->json('data.rows'))->firstWhere('member_id', $this->plainMember->id)['cells']['2026-03']['amount'])->toBe(23000);
+
+    $onlySocial = calendarFor($this, query: ['group_fund_id' => $social->id])->assertOk()->assertJsonPath('data.expected', 5000)->assertJsonPath('data.fund_id', $social->id);
+    $cell = collect($onlySocial->json('data.rows'))->firstWhere('member_id', $this->plainMember->id)['cells']['2026-03'];
+    expect($cell['amount'])->toBe(3000)->and($cell['status'])->toBe('short')
+        ->and($onlySocial->json('data.grand_total'))->toBe(3000);
+
+    $other = createGroupFor(User::factory()->create(), ['name' => 'Other']);
+    calendarFor($this, query: ['group_fund_id' => createFundFor($other)->id])->assertNotFound();
+});

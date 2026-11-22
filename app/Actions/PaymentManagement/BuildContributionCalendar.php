@@ -19,7 +19,7 @@ class BuildContributionCalendar
      *
      * A cell is `paid` (at least the expected amount), `short` (something, but less than expected), `missing` (the month has ended and
      * nothing was paid), `upcoming` (the month has not ended yet) or `n/a` (the member had not joined yet or had already left).
-     * For contributions the expected amount is the minimum of the group's active mandatory funds; for shares any purchase counts.
+     * For contributions the expected amount is the minimum of the group's active mandatory funds (only the chosen fund's, when one is chosen); for shares any purchase counts.
      *
      * @param  string  $type  contributions or shares
      * @param  int|null  $fundId  count only this fund's contributions (contributions type only)
@@ -29,7 +29,7 @@ class BuildContributionCalendar
     {
         $months = $this->months($cycle);
         $expected = $type === 'contributions'
-            ? (float) $group->groupFunds()->where('status', 'active')->where('is_mandatory', true)->sum('minimum_contribution')
+            ? (float) $group->groupFunds()->where('status', 'active')->where('is_mandatory', true)->when($fundId !== null, fn ($query) => $query->whereKey($fundId))->sum('minimum_contribution')
             : 0.0;
         $paid = $type === 'contributions' ? $this->contributionAmounts($group, $cycle, $onlyMemberId, $fundId) : $this->shareAmounts($group, $cycle, $onlyMemberId);
 

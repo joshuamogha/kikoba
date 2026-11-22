@@ -40,6 +40,12 @@ class ContributionCalendarController extends Controller
             abort_unless($group->groupMembers()->whereKey($requestedMemberId)->exists(), 404);
         }
 
+        $fundId = $type === 'contributions' ? ($request->integer('group_fund_id') ?: null) : null;
+
+        if ($fundId !== null) {
+            abort_unless($group->groupFunds()->whereKey($fundId)->exists(), 404);
+        }
+
         $cycles = $this->cyclesOf($group);
         $cycle = $this->chosenCycle($request, $group, $cycles);
 
@@ -48,9 +54,11 @@ class ContributionCalendarController extends Controller
                 'cycle' => ['id' => $cycle->id, 'name' => $cycle->name, 'start_date' => $cycle->start_date->toDateString(), 'end_date' => $cycle->end_date->toDateString()],
                 'type' => $type,
                 'currency' => $group->currency,
-                ...$build->handle($group, $cycle, $type, $onlyMemberId),
+                'fund_id' => $fundId,
+                ...$build->handle($group, $cycle, $type, $onlyMemberId, $fundId),
             ],
             'cycles' => $this->cycleOptions($cycles),
+            'funds' => $this->options($group->groupFunds()->orderBy('name')),
             'can_manage' => $canManage,
         ]);
     }
