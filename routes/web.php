@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\LogoutController;
 use App\Http\Controllers\Auth\ProfileController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\ResetPasswordController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LoanManagement\LoanApplicationController;
 use App\Http\Controllers\LoanManagement\LoanController;
 use App\Http\Controllers\LoanManagement\LoanGuarantorController;
@@ -87,9 +88,7 @@ Route::middleware('auth')->group(function () {
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('dashboard', function () {
-        return view('backend.pages.home');
-    })->name('dashboard');
+    Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     Route::get('profile', [ProfileController::class, 'show'])->name('profile.show');
 

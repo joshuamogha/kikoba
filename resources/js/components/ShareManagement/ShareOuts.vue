@@ -38,7 +38,7 @@
                             <td class="text-end">{{ money(shareOut.amount_paid) }}</td>
                             <td><StatusBadge :status="shareOut.status" /></td>
                             <td>
-                                <a :href="shareOut.url" class="btn btn-sm btn-primary" title="Open">
+                                <a :href="shareOut.url" class="btn btn-primary" title="Open">
                                     <i class="bi bi-eye"></i>
                                 </a>
                             </td>

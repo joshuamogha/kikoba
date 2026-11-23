@@ -28,7 +28,7 @@
                         <td v-if="hasInterval">{{ item.interval_days }} days</td>
                         <td><StatusBadge :status="item.is_active ? 'active' : 'inactive'" /></td>
                         <td v-if="canManage">
-                            <div class="btn-group btn-group-sm">
+                            <div class="btn-group">
                                 <button @click="toggle(item)" class="btn" :class="item.is_active ? 'btn-warning' : 'btn-success'"
                                     :title="item.is_active ? 'Deactivate' : 'Activate'">
                                     <i class="bi" :class="item.is_active ? 'bi-pause-circle' : 'bi-play-circle'"></i>

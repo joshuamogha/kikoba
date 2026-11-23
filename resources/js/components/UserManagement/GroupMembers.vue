@@ -74,7 +74,7 @@
                             </td>
                             <td>{{ member.joined_at }}</td>
                             <td>
-                                <div class="btn-group btn-group-sm">
+                                <div class="btn-group">
                                     <a v-if="canManage || member.is_self" :href="`/members/${member.id}`" class="btn btn-info" title="View member">
                                         <i class="bi bi-eye"></i>
                                     </a>

@@ -12,7 +12,7 @@
                         {{ role.name }}
                         <small class="text-muted ms-1">since {{ role.since }}</small>
                     </span>
-                    <button v-if="role.name !== 'Member'" @click="end(role)" class="btn btn-sm btn-outline-danger"
+                    <button v-if="role.name !== 'Member'" @click="end(role)" class="btn btn-outline-danger"
                         title="End this role">
                         <i class="bi bi-x-lg"></i>
                     </button>

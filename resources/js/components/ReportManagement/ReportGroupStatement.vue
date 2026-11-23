@@ -36,9 +36,15 @@
                     <tbody>
                         <tr v-for="line in profitLines" :key="line.key" :class="{ 'fw-semibold table-light': line.bold }">
                             <td :class="{ 'ps-4': line.indent }">{{ line.label }}</td>
-                            <td class="text-end">{{ money(report.profit[line.key].current) }}</td>
-                            <td class="text-end">{{ money(report.profit[line.key].expected) }}</td>
-                            <td class="text-end">{{ money(report.profit[line.key].total) }}</td>
+                            <td v-for="column in ['current', 'expected', 'total']" :key="column" class="text-end" :class="{ 'text-danger': line.key === 'net' && report.profit.net[column] < 0 }">
+                                {{ line.minus ? "-" : "" }}{{ money(report.profit[line.key][column]) }}
+                            </td>
+                        </tr>
+                        <tr v-for="row in report.profit.income_categories" :key="`income-${row.name}`" class="text-muted small">
+                            <td class="ps-5">Income: {{ row.name }}</td><td class="text-end">{{ money(row.amount) }}</td><td></td><td class="text-end">{{ money(row.amount) }}</td>
+                        </tr>
+                        <tr v-for="row in report.profit.expense_categories" :key="`expense-${row.name}`" class="text-muted small">
+                            <td class="ps-5">Expense: {{ row.name }}</td><td class="text-end">{{ money(row.spent) }}</td><td class="text-end">{{ money(row.planned) }}</td><td class="text-end">{{ money(row.spent + row.planned) }}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -87,7 +93,10 @@ export default {
                 { key: "loan_interest", label: "Loan interest", indent: true },
                 { key: "loan_penalties", label: "Loan penalties", indent: true },
                 { key: "loans", label: "Profit from loans", bold: true },
-                { key: "all", label: "Total profit", bold: true },
+                { key: "income", label: "Other income (all saved income)" },
+                { key: "gross", label: "Gross profit", bold: true },
+                { key: "expenses", label: "Less: expenses (approved and paid; drafts expected)", minus: true },
+                { key: "net", label: "Net profit", bold: true },
             ],
         };
     },

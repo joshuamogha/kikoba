@@ -316,7 +316,7 @@ test('the group statement totals shares, every fund, fines and loans, and each m
         ->and($report->json('data.profit.fines'))->toBe(['current' => 1000, 'expected' => 2000, 'total' => 3000])
         ->and($report->json('data.profit.loan_interest.total'))->toBe(15000)
         ->and($report->json('data.profit.loan_interest.current') + $report->json('data.profit.loan_interest.expected'))->toEqual(15000)
-        ->and($report->json('data.profit.all.current'))->toBe($report->json('data.profit.fines.current') + $report->json('data.profit.loans.current'))
+        ->and($report->json('data.profit.gross.current'))->toBe($report->json('data.profit.fines.current') + $report->json('data.profit.loans.current'))
         ->and($report->json('data.checks.hisa_difference'))->toBe(0)
         ->and($plain['shares'])->toBe(5)->and($plain['total_contributions'])->toBe(50000)->and($plain['fines_paid'])->toBe(1000);
 
@@ -335,4 +335,37 @@ test('the group statement exports a summary and the chosen member columns', func
 
     expect($labels)->toContain('SUMMARY', 'Shares held', 'Fund: Jamii', 'Loans balance', 'MEMBERS', 'Name', $this->plainMember->name, 'Total')
         ->and(collect($rows)->firstWhere(0, 'Name'))->toBe(['Name', 'Shares', 'Loans balance']);
+});
+
+test('the group statement adds every saved income to profit and subtracts approved and paid expenses', function () {
+    $methodId = $this->group->paymentMethods()->value('id');
+    $incomeCategory = $this->group->incomeCategories()->where('name', 'Registration Fees')->value('id');
+    $expenseCategory = $this->group->groupExpenseCategories()->where('name', 'Transport')->value('id');
+    $common = ['financial_cycle_id' => $this->cycle->id, 'group_fund_id' => $this->fund->id, 'payment_method_id' => $methodId];
+
+    foreach ([['approved', 10000], ['pending', 4000]] as $index => [$status, $amount]) {
+        $this->group->groupIncomes()->forceCreate([...$common, 'income_number' => "INC-{$index}", 'income_category_id' => $incomeCategory, 'income_date' => '2026-02-01',
+            'description' => 'Fee', 'amount' => $amount, 'status' => $status, 'received_by' => $this->chair->id]);
+    }
+
+    foreach ([['draft', 1000], ['approved', 2000], ['paid', 3000]] as $index => [$status, $amount]) {
+        $this->group->groupExpenses()->forceCreate([...$common, 'expense_number' => "EXP-{$index}", 'group_expense_category_id' => $expenseCategory, 'expense_date' => '2026-02-01',
+            'description' => 'Fare', 'amount' => $amount, 'payee_name' => 'Driver', 'status' => $status, 'requested_by' => $this->chair->id]);
+    }
+
+    $profit = $this->actingAs($this->chair)->getJson(route('reports.group-statement', ['group_id' => $this->group->id]))->assertOk()->json('data.profit');
+
+    expect($profit['income'])->toBe(['current' => 14000, 'expected' => 0, 'total' => 14000])
+        ->and($profit['income_categories'])->toBe([['name' => 'Registration Fees', 'amount' => 14000]])
+        ->and($profit['expenses'])->toBe(['current' => 5000, 'expected' => 1000, 'total' => 6000])
+        ->and($profit['expense_categories'])->toBe([['name' => 'Transport', 'spent' => 5000, 'planned' => 1000]])
+        ->and($profit['net']['current'])->toEqualWithDelta($profit['gross']['current'] - 5000, 0.01)
+        ->and($profit['net']['expected'])->toEqualWithDelta($profit['gross']['expected'] - 1000, 0.01)
+        ->and($profit['net']['total'])->toEqualWithDelta($profit['gross']['total'] - 6000, 0.01)
+        ->and($profit['gross']['current'])->toEqualWithDelta($profit['fines']['current'] + $profit['loans']['current'] + 14000, 0.01);
+
+    $file = $this->actingAs($this->chair)->get(route('reports.group-statement', ['group_id' => $this->group->id, 'format' => 'xlsx', 'columns' => ['name']]))->assertOk();
+    $labels = collect(XlsxReader::rows($file->baseResponse->getFile()->getPathname()))->pluck(0);
+
+    expect($labels)->toContain('Profit - Net profit: current', 'Income - Registration Fees', 'Expense - Transport (approved and paid)');
 });

@@ -6,7 +6,7 @@
         </div>
         <div v-if="canManage" class="card-body py-2 border-bottom d-flex justify-content-between align-items-center">
             <span class="small text-muted">Already gave a loan? Record it in one step: application, guarantors (optional) and loan.</span>
-            <div class="btn-group btn-group-sm">
+            <div class="btn-group">
                 <button @click="openRecord" class="btn btn-outline-primary"><i class="bi bi-journal-plus"></i> Record existing loan</button>
             </div>
         </div>
@@ -31,7 +31,7 @@
                         <td>{{ item.guarantors_accepted }} / {{ item.guarantors_required }}</td>
                         <td><StatusBadge :status="item.status" /><div v-if="item.rejection_reason" class="small text-muted">{{ item.rejection_reason }}</div></td>
                         <td>
-                            <div v-if="item.status === 'submitted'" class="btn-group btn-group-sm">
+                            <div v-if="item.status === 'submitted'" class="btn-group">
                                 <button v-if="canManage" @click="openDecision('approve', item)" class="btn btn-success" title="Approve"><i class="bi bi-check-lg"></i></button>
                                 <button v-if="canManage" @click="openDecision('reject', item)" class="btn btn-danger" title="Reject"><i class="bi bi-x-lg"></i></button>
                                 <button v-if="canManage || item.is_own" @click="cancel(item)" class="btn btn-secondary" title="Cancel"><i class="bi bi-slash-circle"></i></button>
@@ -85,12 +85,12 @@
 
                 <div class="d-flex justify-content-between align-items-center mt-2">
                     <h6 class="mb-0">2. Guarantors <small class="text-muted">(optional)</small></h6>
-                    <button @click="record.guarantors.push({ group_member_id: '', guaranteed_amount: '' })" class="btn btn-outline-secondary btn-sm"><i class="bi bi-plus-lg"></i> Guarantor</button>
+                    <button @click="record.guarantors.push({ group_member_id: '', guaranteed_amount: '' })" class="btn btn-outline-secondary"><i class="bi bi-plus-lg"></i> Guarantor</button>
                 </div>
                 <div v-for="(guarantor, index) in record.guarantors" :key="index" class="row align-items-end mt-1">
                     <div class="col-md-6"><MemberSearchable v-model="guarantor.group_member_id" label="Guarantor" :options="options.members" :error="errors[`guarantors.${index}.group_member_id`]?.[0]" /></div>
                     <div class="col-md-4"><BaseInput v-model="guarantor.guaranteed_amount" type="number" min="0" step="0.01" label="Amount guaranteed" :error="errors[`guarantors.${index}.guaranteed_amount`]?.[0]" /></div>
-                    <div class="col-md-2 mb-2"><button @click="record.guarantors.splice(index, 1)" class="btn btn-outline-danger btn-sm" title="Remove"><i class="bi bi-trash"></i></button></div>
+                    <div class="col-md-2 mb-2"><button @click="record.guarantors.splice(index, 1)" class="btn btn-outline-danger" title="Remove"><i class="bi bi-trash"></i></button></div>
                 </div>
 
                 <h6 class="mt-3">3. Loan</h6>

@@ -7,7 +7,7 @@
         <div class="card-body py-2 border-bottom d-flex justify-content-between align-items-center">
             <span v-if="canManage" class="small text-muted">Have fines on paper or in a spreadsheet? Import them in one file.</span>
             <span v-else></span>
-            <div class="btn-group btn-group-sm">
+            <div class="btn-group">
                 <a :href="exportUrl" class="btn btn-outline-secondary" title="Download each member's total fine, paid fine and balance, using the current filters"><i class="bi bi-download"></i> Export</a>
             </div>
         </div>
@@ -46,7 +46,7 @@
                         <td>{{ item.fine_date }}<div v-if="item.due_date" class="small text-muted">Due {{ item.due_date }}</div></td>
                         <td><StatusBadge :status="item.status" /><div v-if="item.waiver_reason" class="small text-muted">{{ item.waiver_reason }}</div></td>
                         <td v-if="canManage">
-                            <div v-if="item.status === 'pending' || item.status === 'partial'" class="btn-group btn-group-sm">
+                            <div v-if="item.status === 'pending' || item.status === 'partial'" class="btn-group">
                                 <button @click="openPay(item)" class="btn btn-success" title="Record payment"><i class="bi bi-cash"></i></button>
                                 <button @click="openWaive(item)" class="btn btn-secondary" title="Waive"><i class="bi bi-slash-circle"></i></button>
                             </div>

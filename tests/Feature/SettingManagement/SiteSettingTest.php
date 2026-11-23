@@ -91,6 +91,6 @@ test('the saved name, colours and SEO appear in the tab title and the page heads
 
 test('without saved settings the site keeps its defaults', function () {
     $this->actingAs($this->user)->get(route('dashboard'))->assertOk()
-        ->assertSee('<title>'.config('app.name').'</title>', false)
+        ->assertSee('<title>Dashboard · '.config('app.name').'</title>', false)
         ->assertDontSee('AdminLTE | Dashboard');
 });

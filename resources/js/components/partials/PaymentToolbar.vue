@@ -3,9 +3,9 @@
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
             <h4 class="mb-0">{{ title }}</h4>
             <div class="d-flex flex-wrap gap-2">
-                <button v-if="canManage && addLabel" @click="$emit('add')" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> {{ addLabel }}</button>
-                <button v-if="canManage && bulkLabel" @click="$emit('bulk')" class="btn btn-info btn-sm text-white"><i class="bi bi-people"></i> {{ bulkLabel }}</button>
-                <button v-if="importAllowed && importLabel" @click="$emit('import')" class="btn btn-warning btn-sm"><i class="bi bi-upload"></i> {{ importLabel }}</button>
+                <button v-if="canManage && addLabel" @click="$emit('add')" class="btn btn-primary"><i class="bi bi-plus-lg"></i> {{ addLabel }}</button>
+                <button v-if="canManage && bulkLabel" @click="$emit('bulk')" class="btn btn-info text-white"><i class="bi bi-people"></i> {{ bulkLabel }}</button>
+                <button v-if="importAllowed && importLabel" @click="$emit('import')" class="btn btn-warning"><i class="bi bi-upload"></i> {{ importLabel }}</button>
                 <slot v-if="canManage" name="actions" />
             </div>
         </div>

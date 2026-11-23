@@ -19,7 +19,7 @@
                             <div class="mt-2"><span v-for="role in member.roles" :key="role" class="badge text-bg-info me-1">{{ role }}</span></div>
                         </div>
                     </div>
-                    <a :href="`/members`" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> All members</a>
+                    <a :href="`/members`" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> All members</a>
                 </div>
 
                 <div class="row g-3 mt-2 text-center">

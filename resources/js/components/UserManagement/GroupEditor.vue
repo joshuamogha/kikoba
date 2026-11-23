@@ -1,6 +1,6 @@
 <template>
     <div>
-        <button @click="open" class="btn btn-primary btn-sm">
+        <button @click="open" class="btn btn-primary">
             <i class="bi bi-pencil"></i> Edit group
         </button>
 

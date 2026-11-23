@@ -5,7 +5,7 @@
                 :can-manage="canManage" add-label="Disburse" @group="onGroup" @search="onSearch" @status="onStatus"
                 @add="openForm({ loan_application_id: '', disbursement_date: new Date().toISOString().slice(0, 10) })">
                 <template v-slot:actions>
-                    <button @click="exportModal = true" class="btn btn-success btn-sm"><i class="bi bi-download"></i> Export</button>
+                    <button @click="exportModal = true" class="btn btn-success"><i class="bi bi-download"></i> Export</button>
                 </template>
             </PaymentToolbar>
         </div>
@@ -39,7 +39,7 @@
                         <td class="text-end">{{ money(item.outstanding_balance) }}</td>
                         <td>{{ item.maturity_date }}</td>
                         <td><StatusBadge :status="item.status" /></td>
-                        <td><button @click="openDetail(item)" class="btn btn-info btn-sm" title="Schedule and repayments"><i class="bi bi-eye"></i></button></td>
+                        <td><button @click="openDetail(item)" class="btn btn-info" title="Schedule and repayments"><i class="bi bi-eye"></i></button></td>
                     </tr>
                     <tr v-if="!items.length"><td colspan="8" class="text-center text-muted py-4">{{ emptyMessage }}</td></tr>
                 </tbody>

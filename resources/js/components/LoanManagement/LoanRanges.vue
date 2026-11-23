@@ -22,7 +22,7 @@
                         <td>{{ item.duration_months }} {{ item.duration_months === 1 ? "month" : "months" }}</td>
                         <td>{{ item.repayment_mode === "lump_sum" ? "One payment at the end" : "Installments" }}</td>
                         <td v-if="canManage">
-                            <div class="btn-group btn-group-sm">
+                            <div class="btn-group">
                                 <button @click="openEdit(item)" class="btn btn-secondary" title="Edit"><i class="bi bi-pencil"></i></button>
                                 <button @click="deleting = item" class="btn btn-danger" title="Remove"><i class="bi bi-trash"></i></button>
                             </div>

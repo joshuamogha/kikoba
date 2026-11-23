@@ -4,7 +4,7 @@
             <PaymentToolbar title="Loan repayments" :groups="groups" :group-id="groupId" :statuses="['pending', 'approved']"
                 :can-manage="canManage" add-label="Repayment" import-label="Import" @import="importModal = true" @group="onGroup" @search="onSearch" @status="onStatus" @add="openAdd">
                 <template v-slot:actions>
-                    <button @click="exportModal = true" class="btn btn-success btn-sm"><i class="bi bi-download"></i> Export</button>
+                    <button @click="exportModal = true" class="btn btn-success"><i class="bi bi-download"></i> Export</button>
                 </template>
             </PaymentToolbar>
         </div>
@@ -44,7 +44,7 @@
                         <td>{{ item.payment_date }}</td>
                         <td><StatusBadge :status="item.status" /></td>
                         <td v-if="canManage">
-                            <div class="btn-group btn-group-sm">
+                            <div class="btn-group">
                                 <button v-if="item.status === 'pending'" @click="approve(item)" class="btn btn-success" title="Approve"><i class="bi bi-check-lg"></i></button>
                                 <button @click="openEdit(item)" class="btn btn-secondary" title="Edit"><i class="bi bi-pencil"></i></button>
                                 <button @click="deleting = item" class="btn btn-danger" title="Delete"><i class="bi bi-trash"></i></button>
@@ -90,14 +90,14 @@
 
                 <div class="d-flex justify-content-between align-items-center mt-2 mb-1">
                     <label class="form-label mb-0">Payments for this loan <small class="text-muted">(add a row for each date)</small></label>
-                    <button @click="addPayment" type="button" class="btn btn-outline-secondary btn-sm"><i class="bi bi-plus-lg"></i> Add another payment</button>
+                    <button @click="addPayment" type="button" class="btn btn-outline-secondary"><i class="bi bi-plus-lg"></i> Add another payment</button>
                 </div>
                 <div v-for="(payment, index) in form.payments" :key="index" class="row g-2 align-items-start border rounded pt-2 px-2 pb-0 mb-2">
                     <div class="col-md-4"><DatePicker v-model="payment.payment_date" label="Date" :error="errors[`payments.${index}.payment_date`]?.[0] ?? (index === 0 ? errors.payment_date?.[0] : '')" /></div>
                     <div class="col-md-3"><BaseInput v-model="payment.amount" type="number" min="0" step="0.01" label="Amount" :error="errors[`payments.${index}.amount`]?.[0] ?? (index === 0 ? errors.amount?.[0] : '')" /></div>
                     <div class="col-md-4"><BaseInput v-model="payment.external_reference" label="Reference (optional)" :error="errors[`payments.${index}.external_reference`]?.[0]" /></div>
                     <div class="col-md-1 d-flex align-items-center pt-3">
-                        <button v-if="form.payments.length > 1" @click="removePayment(index)" type="button" class="btn btn-outline-danger btn-sm" title="Remove this payment"><i class="bi bi-trash"></i></button>
+                        <button v-if="form.payments.length > 1" @click="removePayment(index)" type="button" class="btn btn-outline-danger" title="Remove this payment"><i class="bi bi-trash"></i></button>
                     </div>
                 </div>
                 <div v-if="errors.payments?.[0]" class="text-danger small mb-1">{{ errors.payments[0] }}</div>

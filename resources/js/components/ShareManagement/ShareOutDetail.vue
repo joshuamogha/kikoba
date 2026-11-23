@@ -13,17 +13,17 @@
                         <span v-if="shareOut.approved_at">&middot; approved {{ shareOut.approved_at }}</span>
                     </div>
                 </div>
-                <a :href="`/groups/${groupId}/share-outs`" class="btn btn-sm btn-outline-secondary">
+                <a :href="`/groups/${groupId}/share-outs`" class="btn btn-outline-secondary">
                     <i class="bi bi-arrow-left"></i> All share outs
                 </a>
                 <template v-if="canManage && shareOut.status === 'draft'">
-                    <button @click="recalculate" class="btn btn-sm btn-secondary" :disabled="busy">
+                    <button @click="recalculate" class="btn btn-secondary" :disabled="busy">
                         <i class="bi bi-arrow-repeat"></i> Recalculate
                     </button>
-                    <button @click="confirm = 'approve'" class="btn btn-sm btn-success" :disabled="busy">
+                    <button @click="confirm = 'approve'" class="btn btn-success" :disabled="busy">
                         <i class="bi bi-check2-circle"></i> Approve
                     </button>
-                    <button @click="confirm = 'delete'" class="btn btn-sm btn-danger" :disabled="busy">
+                    <button @click="confirm = 'delete'" class="btn btn-danger" :disabled="busy">
                         <i class="bi bi-trash"></i> Delete
                     </button>
                 </template>
@@ -82,7 +82,7 @@
                                     <td class="text-end">{{ money(row.amount_paid) }}</td>
                                     <td><StatusBadge :status="row.status" /></td>
                                     <td v-if="canManage && shareOut.status === 'approved'">
-                                        <button v-if="row.balance > 0" @click="openPayment(row)" class="btn btn-sm btn-primary"
+                                        <button v-if="row.balance > 0" @click="openPayment(row)" class="btn btn-primary"
                                             title="Record payment">
                                             <i class="bi bi-cash-coin"></i>
                                         </button>

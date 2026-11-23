@@ -22,7 +22,7 @@
                     </select>
                 </div>
                 <div class="col-md-2 text-end">
-                    <div class="btn-group btn-group-sm">
+                    <div class="btn-group">
                         <button v-for="option in types" :key="option.key" @click="type = option.key; load()" class="btn" :class="type === option.key ? 'btn-primary' : 'btn-outline-primary'">{{ option.label }}</button>
                     </div>
                 </div>

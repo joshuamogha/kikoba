@@ -7,9 +7,9 @@
       <h3 class="card-title mb-0">All users <span class="badge text-bg-secondary">{{ $users->total() }}</span></h3>
       <form method="GET" action="{{ route('users.index') }}" class="d-flex gap-2">
         <input type="search" name="q" value="{{ $search }}" class="form-control form-control-sm" placeholder="Search name, phone or email">
-        <button class="btn btn-sm btn-primary" type="submit"><i class="bi bi-search"></i></button>
+        <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i></button>
         @if ($search !== '')
-          <a href="{{ route('users.index') }}" class="btn btn-sm btn-outline-secondary">Clear</a>
+          <a href="{{ route('users.index') }}" class="btn btn-outline-secondary">Clear</a>
         @endif
       </form>
     </div>

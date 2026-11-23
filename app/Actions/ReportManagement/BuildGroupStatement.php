@@ -13,14 +13,16 @@ class BuildGroupStatement
      * The group's position in one page, to compare with another system's statement: shares, what was paid into each fund (the Shares
      * fund and the Social fund among them), fines and loans, as a summary and a row for every member.
      *
-     * The profit section is what the group earns besides contributions: paid fines, loan interest and loan penalties, each as what is
-     * already received (current), what is still to come (expected) and the total. Only approved repayments count as received.
+     * The profit section is what the group earns besides contributions: paid fines, loan interest and loan penalties, and every saved
+     * income, each as what is already received (current), what is still to come (expected) and the total (only approved repayments
+     * count as received). Expenses that are approved or paid are subtracted, and drafts are expected: net profit is gross profit minus
+     * expenses.
      *
      * Shares, contributions, fines and loans can be limited to one financial cycle. Fines and loans always show their current
      * paid and balance figures. Waived fines are left out. The Shares fund is compared with the share records: any difference is
      * reported in `checks`.
      *
-     * @return array{funds: array<int, array{id: int, name: string, is_shares: bool}>, summary: array<string, mixed>, profit: array<string, array{current: float, expected: float, total: float}>, rows: array<int, array<string, mixed>>, checks: array{hisa_difference: float}}
+     * @return array{funds: array<int, array{id: int, name: string, is_shares: bool}>, summary: array<string, mixed>, profit: array<string, mixed>, rows: array<int, array<string, mixed>>, checks: array{hisa_difference: float}}
      */
     public function handle(Group $group, ?int $cycleId = null, ?int $onlyMemberId = null): array
     {
@@ -56,6 +58,20 @@ class BuildGroupStatement
             ->selectRaw('coalesce(sum(interest_amount), 0) as interest, coalesce(sum(penalty_amount), 0) as penalty')->first();
         $charged = $group->loans()->when($cycleId !== null, fn ($query) => $query->where('financial_cycle_id', $cycleId))
             ->selectRaw('coalesce(sum(interest_amount), 0) as interest, coalesce(sum(penalty_amount), 0) as penalty')->first();
+
+        $incomes = $group->groupIncomes()
+            ->join('income_categories', 'income_categories.id', '=', 'group_incomes.income_category_id')
+            ->when($cycleId !== null, fn ($query) => $query->where('group_incomes.financial_cycle_id', $cycleId))
+            ->selectRaw('income_categories.name as name, sum(group_incomes.amount) as amount')
+            ->groupBy('income_categories.name')->orderBy('income_categories.name')->get()
+            ->map(fn ($row) => ['name' => $row->name, 'amount' => round((float) $row->amount, 2)])->all();
+
+        $expenses = $group->groupExpenses()
+            ->join('group_expense_categories', 'group_expense_categories.id', '=', 'group_expenses.group_expense_category_id')
+            ->when($cycleId !== null, fn ($query) => $query->where('group_expenses.financial_cycle_id', $cycleId))
+            ->selectRaw("group_expense_categories.name as name, coalesce(sum(case when group_expenses.status in ('approved', 'paid') then group_expenses.amount else 0 end), 0) as spent, coalesce(sum(case when group_expenses.status = 'draft' then group_expenses.amount else 0 end), 0) as planned")
+            ->groupBy('group_expense_categories.name')->orderBy('group_expense_categories.name')->get()
+            ->map(fn ($row) => ['name' => $row->name, 'spent' => round((float) $row->spent, 2), 'planned' => round((float) $row->planned, 2)])->all();
 
         $rows = [];
 
@@ -107,28 +123,54 @@ class BuildGroupStatement
                 ],
             ],
             'rows' => $rows,
-            'profit' => $this->profit($sum('fines_issued'), $sum('fines_paid'), (float) $charged->interest, (float) $received->interest, (float) $charged->penalty, (float) $received->penalty),
+            'profit' => $this->profit($sum('fines_issued'), $sum('fines_paid'), (float) $charged->interest, (float) $received->interest, (float) $charged->penalty, (float) $received->penalty, $incomes, $expenses),
             'checks' => ['hisa_difference' => round($hisaFund - $sum('shares_amount'), 2)],
         ];
     }
 
     /**
-     * Fines, loan interest and loan penalties as current (received), expected (still to come) and total, and all three added up.
+     * Gross profit (fines, loan interest, loan penalties and other income) as current (received), expected (still to come) and total,
+     * the expenses subtracted from it, and the net profit. Saved income counts in full, as received. Approved and paid expenses are
+     * spent (current) and draft ones are expected.
      *
-     * @return array<string, array{current: float, expected: float, total: float}>
+     * @param  array<int, array{name: string, amount: float}>  $incomes
+     * @param  array<int, array{name: string, spent: float, planned: float}>  $expenses
+     * @return array<string, mixed>
      */
-    private function profit(float $finesIssued, float $finesPaid, float $interest, float $interestReceived, float $penalty, float $penaltyReceived): array
+    private function profit(float $finesIssued, float $finesPaid, float $interest, float $interestReceived, float $penalty, float $penaltyReceived, array $incomes, array $expenses): array
     {
         $line = fn (float $total, float $current): array => ['current' => round($current, 2), 'expected' => round(max($total - $current, 0), 2), 'total' => round(max($total, $current), 2)];
-        $lines = ['fines' => $line($finesIssued, $finesPaid), 'loan_interest' => $line($interest, $interestReceived), 'loan_penalties' => $line($penalty, $penaltyReceived)];
+        $add = fn (array ...$lines): array => [
+            'current' => round(array_sum(array_column($lines, 'current')), 2),
+            'expected' => round(array_sum(array_column($lines, 'expected')), 2),
+            'total' => round(array_sum(array_column($lines, 'total')), 2),
+        ];
+
+        $incomeTotal = round(array_sum(array_column($incomes, 'amount')), 2);
+        $fines = $line($finesIssued, $finesPaid);
+        $loanInterest = $line($interest, $interestReceived);
+        $loanPenalties = $line($penalty, $penaltyReceived);
+        $otherIncome = $line($incomeTotal, $incomeTotal);
+        $gross = $add($fines, $loanInterest, $loanPenalties, $otherIncome);
+
+        $spent = round(array_sum(array_column($expenses, 'spent')), 2);
+        $planned = round(array_sum(array_column($expenses, 'planned')), 2);
+        $expenseLine = ['current' => $spent, 'expected' => $planned, 'total' => round($spent + $planned, 2)];
 
         return [
-            ...$lines,
-            'loans' => ['current' => round($lines['loan_interest']['current'] + $lines['loan_penalties']['current'], 2), 'expected' => round($lines['loan_interest']['expected'] + $lines['loan_penalties']['expected'], 2), 'total' => round($lines['loan_interest']['total'] + $lines['loan_penalties']['total'], 2)],
-            'all' => [
-                'current' => round(array_sum(array_column($lines, 'current')), 2),
-                'expected' => round(array_sum(array_column($lines, 'expected')), 2),
-                'total' => round(array_sum(array_column($lines, 'total')), 2),
+            'fines' => $fines,
+            'loan_interest' => $loanInterest,
+            'loan_penalties' => $loanPenalties,
+            'loans' => $add($loanInterest, $loanPenalties),
+            'income' => $otherIncome,
+            'income_categories' => $incomes,
+            'gross' => $gross,
+            'expenses' => $expenseLine,
+            'expense_categories' => $expenses,
+            'net' => [
+                'current' => round($gross['current'] - $expenseLine['current'], 2),
+                'expected' => round($gross['expected'] - $expenseLine['expected'], 2),
+                'total' => round($gross['total'] - $expenseLine['total'], 2),
             ],
         ];
     }

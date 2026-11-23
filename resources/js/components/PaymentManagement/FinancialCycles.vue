@@ -19,7 +19,7 @@
                         <td>{{ item.end_date }}</td>
                         <td><StatusBadge :status="item.status" /></td>
                         <td v-if="canManage">
-                            <div class="btn-group btn-group-sm">
+                            <div class="btn-group">
                                 <button v-if="item.status === 'draft'" @click="change(item, 'open')" class="btn btn-success" title="Open"><i class="bi bi-play-circle"></i></button>
                                 <button v-if="item.status === 'closed'" @click="change(item, 'open')" class="btn btn-success" title="Reopen"><i class="bi bi-unlock"></i></button>
                                 <button v-if="item.status === 'open'" @click="change(item, 'close')" class="btn btn-warning" title="Close"><i class="bi bi-lock"></i></button>

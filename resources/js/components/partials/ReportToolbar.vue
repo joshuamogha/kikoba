@@ -32,8 +32,8 @@
             </select>
         </div>
         <div class="col text-end">
-            <button v-if="exportColumns" @click="exporting = true" class="btn btn-success btn-sm" :disabled="!exportColumns.length"><i class="bi bi-download"></i> Export</button>
-            <a v-else-if="csvUrl" :href="csvUrl" class="btn btn-secondary btn-sm"><i class="bi bi-filetype-csv"></i> CSV</a>
+            <button v-if="exportColumns" @click="exporting = true" class="btn btn-success" :disabled="!exportColumns.length"><i class="bi bi-download"></i> Export</button>
+            <a v-else-if="csvUrl" :href="csvUrl" class="btn btn-secondary"><i class="bi bi-filetype-csv"></i> CSV</a>
         </div>
         <ExportModal v-if="exporting" :title="`Export ${title.toLowerCase()}`" :columns="exportColumns" :url="exportUrl" :params="exportParams" :formats="['xlsx', 'pdf', 'csv']" @close="exporting = false" />
     </div>

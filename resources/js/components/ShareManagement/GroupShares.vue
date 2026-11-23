@@ -3,7 +3,7 @@
         <div class="card-header">
             <div class="d-flex justify-content-between align-items-center">
                 <h4 class="mb-0">Shares</h4>
-                <div v-if="canManage" class="btn-group btn-group-sm">
+                <div v-if="canManage" class="btn-group">
                     <button @click="openAddModal" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Add shares</button>
                     <button @click="importModal = true" class="btn btn-outline-primary"><i class="bi bi-upload"></i> Import</button>
                 </div>

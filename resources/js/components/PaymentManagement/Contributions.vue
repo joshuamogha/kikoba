@@ -4,14 +4,14 @@
             <PaymentToolbar title="Contributions" :groups="groups" :group-id="groupId" :statuses="['pending', 'approved']"
                 :can-manage="canManage" add-label="Contribution" bulk-label="Many members" import-label="Import" @bulk="openBulk" @import="importModal = true" @group="onGroup" @search="onSearch" @status="onStatus" @add="openAdd">
                 <template v-slot:actions>
-                    <button @click="exportModal = true" class="btn btn-success btn-sm"><i class="bi bi-download"></i> Export</button>
-                    <button @click="syncShares" class="btn btn-secondary btn-sm" :disabled="saving" title="Record member shares for approved Hisa/Shares contributions that have none"><i class="bi bi-arrow-repeat"></i> Sync shares</button>
+                    <button @click="exportModal = true" class="btn btn-success"><i class="bi bi-download"></i> Export</button>
+                    <button @click="syncShares" class="btn btn-secondary" :disabled="saving" title="Record member shares for approved Hisa/Shares contributions that have none"><i class="bi bi-arrow-repeat"></i> Sync shares</button>
                 </template>
             </PaymentToolbar>
         </div>
         <div v-if="canManage && selected.length" class="card-body py-2 border-bottom d-flex justify-content-between align-items-center">
             <span class="small">{{ selected.length }} pending {{ selected.length === 1 ? "contribution" : "contributions" }} selected</span>
-            <div class="btn-group btn-group-sm">
+            <div class="btn-group">
                 <button @click="selected = []" class="btn btn-outline-secondary">Clear</button>
                 <button @click="approveSelected" class="btn btn-success" :disabled="saving"><i class="bi bi-check-all"></i> Approve selected</button>
             </div>
@@ -48,7 +48,7 @@
                         <td>{{ item.contribution_date }}</td>
                         <td><StatusBadge :status="item.status" /></td>
                         <td>
-                            <div class="btn-group btn-group-sm">
+                            <div class="btn-group">
                                 <button @click="showDetails(item)" class="btn btn-info" title="View details"><i class="bi bi-eye"></i></button>
                                 <template v-if="canManage">
                                     <button v-if="item.status === 'pending'" @click="approve(item)" class="btn btn-success" title="Approve"><i class="bi bi-check-lg"></i></button>

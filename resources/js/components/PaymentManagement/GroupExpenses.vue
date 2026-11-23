@@ -20,7 +20,7 @@
                         <td>{{ item.expense_date }}</td>
                         <td><StatusBadge :status="item.status" /></td>
                         <td v-if="canManage">
-                            <div class="btn-group btn-group-sm">
+                            <div class="btn-group">
                                 <button v-if="item.status === 'draft'" @click="move(item, 'approve')" class="btn btn-success" title="Approve"><i class="bi bi-check-lg"></i></button>
                                 <button v-if="hasPay && item.status === 'approved'" @click="move(item, 'pay')" class="btn btn-primary" title="Mark as paid"><i class="bi bi-cash"></i></button>
                             </div>

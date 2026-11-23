@@ -3,7 +3,7 @@
         <div class="card-header">
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
                 <h4 class="mb-0">Site settings</h4>
-                <button @click="save" class="btn btn-primary btn-sm" :disabled="saving || !loaded"><i class="bi bi-check-lg"></i> Save settings</button>
+                <button @click="save" class="btn btn-primary" :disabled="saving || !loaded"><i class="bi bi-check-lg"></i> Save settings</button>
             </div>
             <ul class="nav nav-tabs card-header-tabs mt-3">
                 <li v-for="item in tabs" :key="item.key" class="nav-item">
@@ -33,7 +33,7 @@
                     </div>
                     <input type="file" class="form-control form-control-sm" :accept="file.accept" @change="pick(file.key, $event)" />
                     <div class="form-text">{{ file.hint }}</div>
-                    <button v-if="previews[file.key]" @click="removeFile(file.key)" class="btn btn-link btn-sm text-danger p-0">Remove</button>
+                    <button v-if="previews[file.key]" @click="removeFile(file.key)" class="btn btn-link text-danger p-0">Remove</button>
                     <div v-if="errors[file.key]" class="text-danger small">{{ errors[file.key][0] }}</div>
                 </div>
             </div>
@@ -92,7 +92,7 @@
                     <label class="form-label">Share image (shown when the site is shared)</label>
                     <div v-if="previews.og_image" class="mb-2"><img :src="previews.og_image" alt="Share image" style="max-height: 90px; max-width: 100%" /></div>
                     <input type="file" class="form-control form-control-sm" accept="image/png,image/jpeg,image/webp" @change="pick('og_image', $event)" />
-                    <button v-if="previews.og_image" @click="removeFile('og_image')" class="btn btn-link btn-sm text-danger p-0">Remove</button>
+                    <button v-if="previews.og_image" @click="removeFile('og_image')" class="btn btn-link text-danger p-0">Remove</button>
                     <div v-if="errors.og_image" class="text-danger small">{{ errors.og_image[0] }}</div>
                 </div>
                 <div class="col-md-6 mt-4">

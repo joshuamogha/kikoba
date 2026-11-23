@@ -20,7 +20,7 @@
 
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <h6 class="mb-0">1. Download the template</h6>
-                <a :href="downloadUrl" class="btn btn-outline-primary btn-sm" download><i class="bi bi-download"></i> Download template</a>
+                <a :href="downloadUrl" class="btn btn-outline-primary" download><i class="bi bi-download"></i> Download template</a>
             </div>
             <table class="table table-sm table-bordered mb-3">
                 <thead><tr><th>Column</th><th>Required</th><th>What to enter</th><th>Example</th></tr></thead>

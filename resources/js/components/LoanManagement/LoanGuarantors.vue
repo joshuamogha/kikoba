@@ -19,7 +19,7 @@
                         <td class="text-end">{{ money(item.guaranteed_amount) }}</td>
                         <td><StatusBadge :status="item.status" /><div v-if="item.remarks" class="small text-muted">{{ item.remarks }}</div></td>
                         <td>
-                            <div v-if="item.status === 'pending' && item.application_status === 'submitted' && (item.is_mine || canManage)" class="btn-group btn-group-sm">
+                            <div v-if="item.status === 'pending' && item.application_status === 'submitted' && (item.is_mine || canManage)" class="btn-group">
                                 <button @click="respond(item, 'accepted')" class="btn btn-success" title="Accept"><i class="bi bi-check-lg"></i></button>
                                 <button @click="respond(item, 'declined')" class="btn btn-danger" title="Decline"><i class="bi bi-x-lg"></i></button>
                             </div>

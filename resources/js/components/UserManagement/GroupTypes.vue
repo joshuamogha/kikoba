@@ -39,22 +39,22 @@
                                     <td class="text-center">{{ item.groups_count }}</td>
                                     <td>
                                         <button v-if="item.is_active" @click="activateGroupType(item.id)"
-                                            class="btn btn-sm btn-danger">
+                                            class="btn btn-danger">
                                             Deactivate
                                         </button>
                                         <button v-else @click="activateGroupType(item.id)"
-                                            class="btn btn-sm btn-success">
+                                            class="btn btn-success">
                                             Activate
                                         </button>
                                     </td>
                                     <td>
                                         <div class="btn-group">
                                             <button @click="editGroupType(item)" type="button"
-                                                class="btn btn-sm btn-secondary" title="Edit">
+                                                class="btn btn-secondary" title="Edit">
                                                 <i class="bi bi-pencil"></i>
                                             </button>
                                             <button @click="deleteGroupType(item)" type="button"
-                                                class="btn btn-sm btn-danger" title="Delete">
+                                                class="btn btn-danger" title="Delete">
                                                 <i class="bi bi-trash"></i>
                                             </button>
                                         </div>

@@ -28,7 +28,7 @@
                         <td>{{ item.guarantors_required }}</td>
                         <td><StatusBadge :status="item.status" /></td>
                         <td v-if="canManage">
-                            <div class="btn-group btn-group-sm">
+                            <div class="btn-group">
                                 <button @click="toggle(item)" class="btn" :class="item.status === 'active' ? 'btn-warning' : 'btn-success'" :title="item.status === 'active' ? 'Deactivate' : 'Activate'">
                                     <i class="bi" :class="item.status === 'active' ? 'bi-pause-circle' : 'bi-play-circle'"></i>
                                 </button>

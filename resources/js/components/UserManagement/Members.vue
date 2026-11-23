@@ -25,7 +25,7 @@
                     </select>
                 </div>
                 <div class="col-md-2 text-end">
-                    <div v-if="canManage" class="btn-group btn-group-sm">
+                    <div v-if="canManage" class="btn-group">
                         <button @click="openAdd" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Member</button>
                         <button @click="openImport" class="btn btn-outline-primary"><i class="bi bi-upload"></i>
                             Import</button>
@@ -60,7 +60,7 @@
                             <StatusBadge :status="item.membership_status" />
                         </td>
                         <td>
-                            <div class="btn-group btn-group-sm">
+                            <div class="btn-group">
                                 <a v-if="canManage || item.is_self" :href="`/members/${item.id}`" class="btn btn-info"
                                     title="View member"><i class="bi bi-eye"></i></a>
                                 <template v-if="canManage">

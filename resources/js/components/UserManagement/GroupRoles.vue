@@ -35,7 +35,7 @@
                 <div class="card-header">
                     <div class="d-flex justify-content-between align-items-center">
                         <h4 class="mb-0">Your roles</h4>
-                        <button v-if="canManage" @click="openAddModal" class="btn btn-primary btn-sm">
+                        <button v-if="canManage" @click="openAddModal" class="btn btn-primary">
                             <i class="bi bi-plus-lg"></i> Role
                         </button>
                     </div>
@@ -61,7 +61,7 @@
                                     <StatusBadge :status="role.status" />
                                 </td>
                                 <td v-if="canManage">
-                                    <div class="btn-group btn-group-sm">
+                                    <div class="btn-group">
                                         <button @click="toggle(role)" class="btn"
                                             :class="role.status === 'active' ? 'btn-warning' : 'btn-success'"
                                             :title="role.status === 'active' ? 'Deactivate' : 'Activate'">
