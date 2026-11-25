@@ -40,16 +40,12 @@
                     <div class="col-12 col-lg-5">
                         <div class="card h-100 text-bg-primary">
                             <div class="card-body">
-                                <div class="small opacity-75">Group balance (cash, today)</div>
+                                <div class="small opacity-75">
+                                    Group balance (cash, today)
+                                    <button type="button" class="btn btn-link btn-sm p-0 ms-1 text-white" title="How is this calculated?" aria-label="How is the group balance calculated?" @click="showBalance = true"><i class="bi bi-info-circle"></i></button>
+                                </div>
                                 <div class="display-5 fw-semibold">{{ currency }} {{ money(data.balance.amount) }}</div>
                                 <div v-if="data.balance.opening" class="small opacity-75">Opening balance {{ money(data.balance.opening) }} as of {{ data.balance.opening_as_of }}</div>
-                                <table class="table table-sm table-borderless text-white mt-3 mb-0 small">
-                                    <tbody>
-                                        <tr v-for="line in balanceLines" :key="line.label" :class="line.strong ? 'fw-semibold border-top' : ''">
-                                            <td class="py-0">{{ line.label }}</td><td class="py-0 text-end">{{ line.sign }}{{ money(line.value) }}</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
                             </div>
                         </div>
                     </div>
@@ -162,6 +158,32 @@
                 </div>
             </template>
         </template>
+        <MediumModal v-if="showBalance && data?.balance" @close="showBalance = false">
+            <template #header>How the group balance is calculated</template>
+            <template #body>
+                <p class="text-muted small mb-3">Cash movements up to today{{ data.balance.opening_as_of ? `, counted from ${data.balance.opening_as_of}` : "" }}. Only approved records count (expenses must be paid).</p>
+                <ul class="list-group list-group-flush mb-3">
+                    <li class="list-group-item d-flex justify-content-between px-0">
+                        <span><i class="bi bi-flag me-2 text-muted"></i>Opening balance / brought forward</span><span class="fw-semibold">{{ money(data.balance.brought_forward) }}</span>
+                    </li>
+                </ul>
+                <div class="small text-uppercase fw-semibold text-success mb-1">Money in</div>
+                <ul class="list-group list-group-flush mb-3">
+                    <li v-for="line in balanceIn" :key="line.label" class="list-group-item d-flex justify-content-between px-0">
+                        <span><i class="bi bi-plus-circle me-2 text-success"></i>{{ line.label }}</span><span class="text-success">{{ money(line.value) }}</span>
+                    </li>
+                </ul>
+                <div class="small text-uppercase fw-semibold text-danger mb-1">Money out</div>
+                <ul class="list-group list-group-flush mb-3">
+                    <li v-for="line in balanceOut" :key="line.label" class="list-group-item d-flex justify-content-between px-0">
+                        <span><i class="bi bi-dash-circle me-2 text-danger"></i>{{ line.label }}</span><span class="text-danger">{{ money(line.value) }}</span>
+                    </li>
+                </ul>
+                <div class="d-flex justify-content-between align-items-center rounded p-3 text-bg-primary">
+                    <span class="fw-semibold">Group balance</span><span class="fs-5 fw-semibold">{{ currency }} {{ money(data.balance.amount) }}</span>
+                </div>
+            </template>
+        </MediumModal>
     </div>
 </template>
 
@@ -177,7 +199,7 @@ export default {
     },
 
     data() {
-        return { groupId: String(initialGroup(this.groups)), cycleId: "", cycles: [], data: null, loaded: false, chartKey: 0 };
+        return { groupId: String(initialGroup(this.groups)), cycleId: "", cycles: [], data: null, loaded: false, chartKey: 0, showBalance: false };
     },
 
     computed: {
@@ -187,20 +209,23 @@ export default {
         currency() {
             return this.data?.currency ?? "";
         },
-        balanceLines() {
-            const balance = this.data.balance;
-            const parts = balance.parts;
+        balanceIn() {
+            const parts = this.data.balance.parts;
 
             return [
-                { label: "Opening balance / brought forward", sign: "", value: balance.brought_forward },
-                { label: "Contributions (savings, shares, funds)", sign: "+", value: parts.contributions },
-                { label: "Loan repayments", sign: "+", value: parts.loan_repayments },
-                { label: "Fines and loan penalties paid", sign: "+", value: parts.penalties_paid },
-                { label: "Other income", sign: "+", value: parts.income },
-                { label: "Loans given out", sign: "-", value: parts.loans_given },
-                { label: "Expenses paid", sign: "-", value: parts.expenses },
-                { label: "Dividends paid", sign: "-", value: parts.dividends },
-                { label: "Group balance", sign: "", value: balance.amount, strong: true },
+                { label: "Contributions (savings, shares, funds)", value: parts.contributions },
+                { label: "Loan repayments (principal + interest)", value: parts.loan_repayments },
+                { label: "Fines and loan penalties paid", value: parts.penalties_paid },
+                { label: "Other income", value: parts.income },
+            ];
+        },
+        balanceOut() {
+            const parts = this.data.balance.parts;
+
+            return [
+                { label: "Loans given out", value: parts.loans_given },
+                { label: "Expenses paid", value: parts.expenses },
+                { label: "Dividends paid", value: parts.dividends },
             ];
         },
         cycleLabel() {
