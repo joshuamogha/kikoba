@@ -52,20 +52,23 @@ class BuildDashboard
     }
 
     /**
-     * The group's cash balance now (the cash reconciliation, with the opening balance) and the money that came in and went out in the cycle.
+     * The group's cash balance now (the cash reconciliation, with the opening balance) and the money that came in and went out in the cycle,
+     * counted over the whole cycle whatever the opening balance date is.
      *
      * @return array<string, mixed>
      */
     private function balance(Group $group, ?FinancialCycle $cycle): array
     {
         $now = $this->cash->handle($group, null, today()->toDateString(), null);
-        $period = $this->cash->handle($group, $cycle?->start_date->toDateString(), $cycle === null ? today()->toDateString() : min($cycle->end_date, today())->toDateString(), null);
+        $period = $this->cash->movements($group, $cycle?->start_date->toDateString(), $cycle === null ? today()->toDateString() : min($cycle->end_date, today())->toDateString(), null);
         $out = $period['figures']['withdrawals'] + $period['figures']['dividends'];
 
         return [
             'amount' => $now['balance'],
             'opening' => $now['opening']['amount'],
             'opening_as_of' => $now['opening']['as_of'],
+            'brought_forward' => $now['opening']['brought_forward'],
+            'parts' => $now['parts'],
             'period_in' => $period['money_in'],
             'period_out' => round($out, 2),
             'period_net' => round($period['money_in'] - $out, 2),

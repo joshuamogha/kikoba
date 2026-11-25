@@ -96,3 +96,13 @@ test('members see only their own figures and never the group balance', function 
 test('an outsider cannot see the group dashboard', function () {
     dashboardFor($this, $this->outsider)->assertForbidden();
 });
+
+test('the cycle money in and out is not cut short by the opening balance date', function () {
+    payFor($this, $this->plainMember, '2026-03', 20000);
+    $this->group->ensureGroupSetting()->update(['opening_balance' => 1000, 'opening_balance_date' => '2026-04-12']);
+
+    $balance = dashboardFor($this)->assertOk()->json('data.balance');
+
+    expect($balance['period_in'])->toBe(20000)->and($balance['amount'])->toBe(1000)
+        ->and($balance['brought_forward'])->toBe(1000)->and($balance['parts']['contributions'])->toBe(0);
+});

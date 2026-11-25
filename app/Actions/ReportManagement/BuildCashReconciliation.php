@@ -25,7 +25,7 @@ class BuildCashReconciliation
      * is a single figure, so it is left out then too. With an opening balance, only movements from its date on are counted, and a From
      * date after it carries the movements in between into the balance brought forward.
      *
-     * @return array{figures: array<string, float>, money_in: float, opening: array{amount: float, as_of: string|null, brought_forward: float, applies: bool}, balance: float}
+     * @return array{figures: array<string, float>, money_in: float, parts: array<string, float>, opening: array{amount: float, as_of: string|null, brought_forward: float, applies: bool}, balance: float}
      */
     public function handle(Group $group, ?string $from, ?string $to, ?int $paymentMethodId): array
     {
@@ -55,9 +55,9 @@ class BuildCashReconciliation
     /**
      * The movements of money between two dates, without any opening balance. Its balance is money in minus withdrawals and dividends.
      *
-     * @return array{figures: array<string, float>, money_in: float, balance: float}
+     * @return array{figures: array<string, float>, money_in: float, parts: array<string, float>, balance: float}
      */
-    private function movements(Group $group, ?string $from, ?string $to, ?int $paymentMethodId): array
+    public function movements(Group $group, ?string $from, ?string $to, ?int $paymentMethodId): array
     {
         $between = fn ($query, string $column) => $query
             ->when($from !== null, fn ($inner) => $inner->whereDate($column, '>=', $from))
@@ -142,6 +142,15 @@ class BuildCashReconciliation
         return [
             'figures' => array_map(fn (float $amount) => round($amount, 2), $figures),
             'money_in' => round($moneyIn, 2),
+            'parts' => [
+                'contributions' => round($contributions['all'], 2),
+                'loan_repayments' => round($repaid, 2),
+                'penalties_paid' => round($penaltiesPaid, 2),
+                'income' => round($income, 2),
+                'loans_given' => round($disbursed, 2),
+                'expenses' => round($expenses, 2),
+                'dividends' => round($dividends, 2),
+            ],
             'balance' => round($moneyIn - $withdrawals - $dividends, 2),
         ];
     }

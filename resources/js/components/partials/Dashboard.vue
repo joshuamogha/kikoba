@@ -43,6 +43,13 @@
                                 <div class="small opacity-75">Group balance (cash, today)</div>
                                 <div class="display-5 fw-semibold">{{ currency }} {{ money(data.balance.amount) }}</div>
                                 <div v-if="data.balance.opening" class="small opacity-75">Opening balance {{ money(data.balance.opening) }} as of {{ data.balance.opening_as_of }}</div>
+                                <table class="table table-sm table-borderless text-white mt-3 mb-0 small">
+                                    <tbody>
+                                        <tr v-for="line in balanceLines" :key="line.label" :class="line.strong ? 'fw-semibold border-top' : ''">
+                                            <td class="py-0">{{ line.label }}</td><td class="py-0 text-end">{{ line.sign }}{{ money(line.value) }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
@@ -179,6 +186,22 @@ export default {
         },
         currency() {
             return this.data?.currency ?? "";
+        },
+        balanceLines() {
+            const balance = this.data.balance;
+            const parts = balance.parts;
+
+            return [
+                { label: "Opening balance / brought forward", sign: "", value: balance.brought_forward },
+                { label: "Contributions (savings, shares, funds)", sign: "+", value: parts.contributions },
+                { label: "Loan repayments", sign: "+", value: parts.loan_repayments },
+                { label: "Fines and loan penalties paid", sign: "+", value: parts.penalties_paid },
+                { label: "Other income", sign: "+", value: parts.income },
+                { label: "Loans given out", sign: "-", value: parts.loans_given },
+                { label: "Expenses paid", sign: "-", value: parts.expenses },
+                { label: "Dividends paid", sign: "-", value: parts.dividends },
+                { label: "Group balance", sign: "", value: balance.amount, strong: true },
+            ];
         },
         cycleLabel() {
             return this.cycleId === "all" ? "All time" : (this.cycles.find((cycle) => String(cycle.value) === String(this.cycleId))?.label ?? "");
